@@ -1,0 +1,3 @@
+# ninja log v5
+1	100	1712386130108760840	CMakeFiles/ogg_opus_player_plugin.dir/audio.c.o	61ff9a989750369b
+100	159	1712386130156746092	/Users/sunnatillo/Projects/englify/example/ogg_opus_player/example/build/ogg_opus_player/intermediates/cxx/Debug/3t1g6z6m/obj/armeabi-v7a/libogg_opus_player_plugin.so	411a56a6fa7896f5

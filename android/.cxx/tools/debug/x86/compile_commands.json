@@ -1,0 +1,7 @@
+[
+{
+  "directory": "/Users/sunnatillo/Projects/englify/example/ogg_opus_player/android/.cxx/Debug/a4vg2a14/x86",
+  "command": "/Users/sunnatillo/Library/Android/sdk/ndk/25.1.8937393/toolchains/llvm/prebuilt/darwin-x86_64/bin/clang --target=i686-none-linux-android21 --sysroot=/Users/sunnatillo/Library/Android/sdk/ndk/25.1.8937393/toolchains/llvm/prebuilt/darwin-x86_64/sysroot -Dogg_opus_player_plugin_EXPORTS -I/Users/sunnatillo/Projects/englify/example/ogg_opus_player/android/src/main/cpp/opus/include -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -mstackrealign -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security  -fno-limit-debug-info  -fPIC -o CMakeFiles/ogg_opus_player_plugin.dir/audio.c.o -c /Users/sunnatillo/Projects/englify/example/ogg_opus_player/android/src/main/cpp/audio.c",
+  "file": "/Users/sunnatillo/Projects/englify/example/ogg_opus_player/android/src/main/cpp/audio.c"
+}
+]

@@ -1,0 +1,3 @@
+/Users/sunnatillo/Projects/englify/example/ogg_opus_player/android/.cxx/Debug/a4vg2a14/x86/CMakeFiles/ogg_opus_player_plugin.dir
+/Users/sunnatillo/Projects/englify/example/ogg_opus_player/android/.cxx/Debug/a4vg2a14/x86/CMakeFiles/edit_cache.dir
+/Users/sunnatillo/Projects/englify/example/ogg_opus_player/android/.cxx/Debug/a4vg2a14/x86/CMakeFiles/rebuild_cache.dir
