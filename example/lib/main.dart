@@ -22,6 +22,7 @@ Future<void> main() async {
           title: const Text("Plugin example app"),
         ),
         body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             _PlayAsset(directory: workDir),
             const SizedBox(height: 20),
@@ -96,12 +97,12 @@ class _OpusOggPlayerWidget extends StatefulWidget {
 }
 
 class _OpusOggPlayerWidgetState extends State<_OpusOggPlayerWidget> {
-  OggOpusPlayer? _player;
+  late final OggOpusPlayer _player = OggOpusPlayer(widget.path);
 
   Timer? timer;
 
   double _playingPosition = 0;
-  double _playingDuration = 0;
+  int _playingDuration = 0;
   PlayerState state = PlayerState.idle;
 
   static const List<double> _kPlaybackSpeedSteps = <double>[0.5, 1, 1.5, 2];
@@ -111,79 +112,73 @@ class _OpusOggPlayerWidgetState extends State<_OpusOggPlayerWidget> {
   @override
   void initState() {
     super.initState();
-    _player = OggOpusPlayer(widget.path);
-    _player?.state.addListener(
-      () async {
-        state = _player?.state.value ?? PlayerState.idle;
-        setState(() {});
-        if (_player?.state.value == PlayerState.paused) {
-          _playingDuration = await _player?.getDuration() ?? 0;
-          setState(() {});
-        }
-      },
-    );
+    state = _player.state.value;
+    getDuration();
     timer = Timer.periodic(const Duration(milliseconds: 50), (Timer timer) {
       setState(() {
-        _playingPosition = _player?.currentPosition ?? 0;
+        _playingPosition = _player.currentPosition;
       });
     });
+  }
+
+  Future<void> getDuration() async {
+    final int? duration = await _player.getDuration();
+    if (duration != null) {
+      setState(() {
+        _playingDuration = duration;
+      });
+    }
   }
 
   @override
   void dispose() {
     timer?.cancel();
-    _player?.dispose();
+    _player.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Text("P: ${_playingPosition.toStringAsFixed(2)}"),
-          Text("D: ${_playingDuration.toStringAsFixed(2)}"),
-          const SizedBox(height: 8),
-          if (state == PlayerState.playing)
+  Widget build(BuildContext context) => ValueListenableBuilder<PlayerState>(
+        valueListenable: _player.state,
+        builder: (_, PlayerState state, __) => Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Text("P: ${countToTime(_playingPosition)}"),
+            const SizedBox(width: 8),
+            Text("D: ${countToTime(_playingDuration)}"),
+            const SizedBox(width: 8),
             IconButton(
               onPressed: () {
-                _player?.pause();
+                if (state == PlayerState.playing) {
+                  _player.pause();
+                } else {
+                  _player.play();
+                }
               },
-              icon: const Icon(Icons.pause),
-            )
-          else
-            IconButton(
-              onPressed: () async {
-                _player?.play();
-              },
-              icon: const Icon(Icons.play_arrow),
+              icon: Icon(
+                state != PlayerState.playing
+                    ? Icons.play_arrow_rounded
+                    : Icons.pause_rounded,
+              ),
             ),
-          IconButton(
-            onPressed: () {
-              setState(() {
-                _player?.dispose();
-                _player = null;
-              });
-            },
-            icon: const Icon(Icons.stop),
-          ),
-          IconButton(
-            onPressed: () {
-              Share.shareXFiles(<XFile>[XFile(widget.path)]);
-            },
-            icon: const Icon(Icons.share),
-          ),
-          if (_player != null)
+            IconButton(
+              onPressed: () {
+                Share.shareXFiles(<XFile>[XFile(widget.path)]);
+              },
+              icon: const Icon(Icons.share),
+            ),
             TextButton(
               onPressed: () {
                 _speedIndex++;
                 if (_speedIndex >= _kPlaybackSpeedSteps.length) {
                   _speedIndex = 0;
                 }
-                _player?.setPlaybackRate(_kPlaybackSpeedSteps[_speedIndex]);
+                _player.setPlaybackRate(_kPlaybackSpeedSteps[_speedIndex]);
               },
               child: Text("X${_kPlaybackSpeedSteps[_speedIndex]}"),
             ),
-        ],
+          ],
+        ),
       );
 }
 
@@ -249,4 +244,10 @@ class _RecorderExampleState extends State<_RecorderExample> {
             _OpusOggPlayerWidget(path: _recordedPath),
         ],
       );
+}
+
+String countToTime(num count) {
+  final int minute = count ~/ 60;
+  final int second = (count % 60).toInt();
+  return "0$minute:${second < 10 ? "0$second" : second}";
 }

@@ -15,38 +15,12 @@ enum Status: Int {
   case paused
 }
 
-enum PlayerState: Comparable {
-    case unknown
-    case buffering
-    case playing
-    case paused
-    case stopped
-    case failed
-    case ended
-
-    var controlActionTitle: String {
-        switch self {
-        case .unknown, .paused, .stopped, .failed, .ended:
-            return "Play"
-        case .buffering:
-            return "Loading..."
-        case .playing:
-            return "Pause"
-        }
-    }
-}
-
 struct Track {
     let filePath: URL
 }
 
 class OggPlayer: ObservableObject {
-    @Published var playerState: PlayerState {
-        didSet {
-            controlButtonTitle = playerState.controlActionTitle
-        }
-    }
-
+    
     var onStatusChanged: ((OggPlayer) -> Void)?
 
     @Synchronized(value: .stopped)
@@ -56,11 +30,10 @@ class OggPlayer: ObservableObject {
       }
     }
 
-    var playRate: Float = 1.0
-    @Published var durationString: String = ""
-    private(set) var controlButtonTitle: String
-    var controlIconName: String {
-        isPlaying ? "pause" : "play"
+    var playRate: Float = 1.0 {
+        didSet {
+          mediaPlayer.rate = playRate
+        }
     }
     
     var postion : Double = 0
@@ -73,14 +46,10 @@ class OggPlayer: ObservableObject {
     // MARK: - Initializer
 
     init(track: Track, path: String) {
-        let initialPlayerState = PlayerState.unknown
-        self.controlButtonTitle = initialPlayerState.controlActionTitle
-        self.playerState = initialPlayerState
-
         self.track = track
         self.path = path
+        
         loadTrack(track)
-
         setupObservers()
     }
 
@@ -151,7 +120,8 @@ class OggPlayer: ObservableObject {
             .publisher(for: \.time, options: [.new])
             .sink { time in
                 print("Time: \(time)")
-                self.postion = time.value?.doubleValue ?? 0
+                print("postion: \(time.value?.doubleValue ?? 0)")
+                self.postion = (time.value?.doubleValue ?? 0) / 1000
             }
             .store(in: &cancellable)
     }
@@ -159,25 +129,18 @@ class OggPlayer: ObservableObject {
     // MARK: - Helpers
 
     var isPlaying: Bool {
-        return playerState == .playing
+        return status == .playing
     }
 
     var duration: Int {
         guard let lengthInMilliseconds = mediaLength?.intValue else {
             return 0
         }
-
-        let msToSeconds = lengthInMilliseconds / 1000
-        return Int(msToSeconds)
-    }
-    
-
-    var formattedDuration: Double {
-        return Double(mediaLength?.intValue ?? 0)
+        let msToSeconds: Int = Int(lengthInMilliseconds / 1000)
+        return msToSeconds
     }
 
     // MARK: - VLCKit Related
-
     private var mediaLength: VLCTime? {
         guard let nowPlusFive = Calendar.current.date(byAdding: .second,
                                                       value: 5,

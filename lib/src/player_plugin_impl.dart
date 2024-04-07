@@ -47,19 +47,22 @@ void _initChannelIfNeeded() {
 Future<dynamic> _handleMethodCall(MethodCall call) async {
   switch (call.method) {
     case "onPlayerStateChanged":
-      final int state = call.arguments["state"] as int;
-      final double position = call.arguments["position"] as double;
-      final int playerId = call.arguments["playerId"] as int;
-      final int updateTime = call.arguments["updateTime"] as int;
-      final double? speed = call.arguments["speed"] as double?;
+      final Map<dynamic, dynamic> args =
+          call.arguments as Map<dynamic, dynamic>;
+      final int state = args["state"] as int;
+      final double position = args["position"] as double;
+      final int playerId = args["playerId"] as int;
+      final int updateTime = args["updateTime"] as int;
+      final double? speed = args["speed"] as double?;
       final OggOpusPlayerPluginImpl? player = _players[playerId];
       if (player == null) {
         return;
       }
       player._playerState.value = _convertFromRawValue(state);
-      player._lastUpdateTimeStamp = updateTime;
-      player._position = position;
-      player._playbackRate = speed ?? 1.0;
+      player
+        .._lastUpdateTimeStamp = updateTime
+        .._position = position
+        .._playbackRate = speed ?? 1.0;
     case "onRecorderCanceled":
       final int recorderId = call.arguments["recorderId"] as int;
       final OggOpusRecorderPluginImpl? recorder = _recorders[recorderId];
@@ -168,11 +171,11 @@ class OggOpusPlayerPluginImpl extends OggOpusPlayer {
   }
 
   @override
-  void pause() {
+  Future<void> pause() async {
     if (_playerId <= 0) {
       return;
     }
-    _channel.invokeMethod("pause", _playerId);
+    await _channel.invokeMethod("pause", _playerId);
   }
 
   @override
@@ -188,18 +191,17 @@ class OggOpusPlayerPluginImpl extends OggOpusPlayer {
   }
 
   @override
-  void dispose() {
-    _channel.invokeMethod("stop", _playerId);
+  Future<void> dispose() async {
+    await _channel.invokeMethod("stop", _playerId);
   }
 
   @override
-  Future<double?> getDuration() async {
+  Future<int?> getDuration() async {
     await _createCompleter.future;
     if (_playerId <= 0) {
       return 0;
     }
-    final double? duration =
-        await _channel.invokeMethod("getDuration", _playerId);
+    final int? duration = await _channel.invokeMethod("getDuration", _playerId);
     return duration;
   }
 }
@@ -248,8 +250,8 @@ class OggOpusRecorderPluginImpl extends OggOpusRecorder {
   }
 
   @override
-  void dispose() {
-    _channel.invokeMethod("destroyRecorder", _id);
+  Future<void> dispose() async {
+    await _channel.invokeMethod("destroyRecorder", _id);
   }
 
   @override

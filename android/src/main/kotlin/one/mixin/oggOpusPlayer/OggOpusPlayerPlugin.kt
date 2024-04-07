@@ -50,24 +50,38 @@ class OggOpusPlayerPlugin : FlutterPlugin, MethodCallHandler {
                 players[id] = player
                 result.success(id)
             }
+
             "play" -> {
                 (call.arguments as? Int)?.let {
                     players[it]?.play()
                 }
                 result.success(null)
             }
+
             "getDuration" -> {
-                (call.arguments as? Int)?.let {
-                   result.success(players[it]?.duration)
+                when (call.arguments) {
+                    null -> {
+                        result.success(null)
+                    }
+
+                    is Int -> {
+                        android.util.Log.d("getDuration","getDuration native ${players[call.arguments as Int]?.duration}")
+                        result.success(players[call.arguments as Int]?.duration)
+                    }
+
+                    else -> {
+                        result.success(null)
+                    }
                 }
-                result.success(null)
             }
+
             "pause" -> {
                 (call.arguments as? Int)?.let {
                     players[it]?.pause()
                 }
                 result.success(null)
             }
+
             "stop" -> {
                 (call.arguments as? Int)?.let {
                     players[it]?.destroy()
@@ -75,6 +89,7 @@ class OggOpusPlayerPlugin : FlutterPlugin, MethodCallHandler {
                 }
                 result.success(null)
             }
+
             "setPlaybackSpeed" -> {
                 val playerId = call.argument<Int>("playerId")
                 val speed = call.argument<Double>("speed")
@@ -85,6 +100,7 @@ class OggOpusPlayerPlugin : FlutterPlugin, MethodCallHandler {
                 }
                 result.success(null)
             }
+
             "createRecorder" -> {
                 val path = call.arguments as String
                 val id = generatePlayerId()
@@ -112,6 +128,7 @@ class OggOpusPlayerPlugin : FlutterPlugin, MethodCallHandler {
                 recorders[id] = recorder
                 result.success(id)
             }
+
             "startRecord" -> {
                 // check has permission
                 val hasPermission =
@@ -125,12 +142,14 @@ class OggOpusPlayerPlugin : FlutterPlugin, MethodCallHandler {
                 }
                 result.success(null)
             }
+
             "stopRecord" -> {
                 (call.arguments as? Int)?.let {
                     recorders[it]?.stopRecording(AudioEndStatus.SEND)
                 }
                 result.success(null)
             }
+
             "destroyRecorder" -> {
                 (call.arguments as? Int)?.let {
                     recorders[it]?.stopRecording(AudioEndStatus.CANCEL)
@@ -138,6 +157,7 @@ class OggOpusPlayerPlugin : FlutterPlugin, MethodCallHandler {
                 }
                 result.success(null)
             }
+
             else -> {
                 result.notImplemented()
             }

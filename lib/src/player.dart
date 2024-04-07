@@ -27,7 +27,7 @@ abstract class OggOpusPlayer {
   double get currentPosition;
 
   /// Current playing position, in seconds.
-  Future<double?> getDuration();
+  Future<int?> getDuration();
 
   /// Set playback rate, in the range 0.5 through 2.0.
   /// 1.0 is normal speed (default).

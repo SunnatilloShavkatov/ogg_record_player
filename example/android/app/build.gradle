@@ -25,7 +25,8 @@ if (flutterVersionName == null) {
 
 android {
     namespace "com.example.ogg_opus_player_example"
-    ndkVersion "25.1.8937393"
+    buildToolsVersion "34.0.0"
+    ndkVersion "26.2.11394342"
     compileSdk 34
 
     compileOptions {
@@ -60,6 +61,4 @@ flutter {
     source '../..'
 }
 
-dependencies {
-//    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
-}
+dependencies {}

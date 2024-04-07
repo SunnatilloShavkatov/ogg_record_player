@@ -44,7 +44,7 @@ class AudioPlayer(
 
     val position: Double get() = player.currentPosition.toDouble() / 1000
 
-    val duration: Double get() = player.duration.toDouble() / 1000
+    val duration: Int get() = player.duration.toInt() / 1000
 
     val state: Status
         get() {

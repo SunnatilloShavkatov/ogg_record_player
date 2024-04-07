@@ -29,9 +29,7 @@ public class SwiftOggOpusPlayerPlugin: NSObject, FlutterPlugin {
     super.init()
   }
 
-    private func handlePlayerStateChanged(id: Int, _ player: OggPlayer) {
-        print("ssbcnkcnskjcnsdjkc")
-        print("ssbcnkcnskjcnsdjkc \(player.status.rawValue)")
+  private func handlePlayerStateChanged(id: Int, _ player: OggPlayer) {
     channel.invokeMethod("onPlayerStateChanged", arguments: [
       "state": player.status.rawValue,
       "position": player.postion,
@@ -75,7 +73,7 @@ public class SwiftOggOpusPlayerPlugin: NSObject, FlutterPlugin {
       result(nil)
     case "getDuration":
       if let playerId = call.arguments as? Int {
-        result(playerDictionary[playerId]?.formattedDuration)
+        result(playerDictionary[playerId]?.duration)
       } else{
         result(nil)
       }
