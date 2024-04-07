@@ -11,7 +11,7 @@ import android.telephony.PhoneStateListener
 import android.telephony.TelephonyManager
 import java.io.File
 
-class OpusAudioRecorder constructor(
+class OpusAudioRecorder(
     ctx: Context,
     private val recordingAudioFile: File,
     private val callback: Callback? = null
@@ -117,7 +117,7 @@ class OpusAudioRecorder constructor(
                             }
                         }
                         samplesCount = newSamplesCount
-                    } catch (e: Exception) {
+                    } catch (_: Exception) {
                     }
 
                     fileEncodingQueue.postRunnable(

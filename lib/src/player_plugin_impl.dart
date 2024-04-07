@@ -127,8 +127,7 @@ class OggOpusPlayerPluginImpl extends OggOpusPlayer {
   final Completer<void> _createCompleter = Completer<void>();
 
   final ValueNotifier<PlayerState> _playerState =
-      ValueNotifier(PlayerState.idle);
-
+      ValueNotifier<PlayerState>(PlayerState.idle);
   double _position = 0;
 
   // [_position] updated timestamp, in milliseconds.
@@ -191,6 +190,17 @@ class OggOpusPlayerPluginImpl extends OggOpusPlayer {
   @override
   void dispose() {
     _channel.invokeMethod("stop", _playerId);
+  }
+
+  @override
+  Future<double?> getDuration() async {
+    await _createCompleter.future;
+    if (_playerId <= 0) {
+      return 0;
+    }
+    final double? duration =
+        await _channel.invokeMethod("getDuration", _playerId);
+    return duration;
   }
 }
 

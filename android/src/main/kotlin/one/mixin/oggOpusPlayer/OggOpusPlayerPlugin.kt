@@ -3,6 +3,8 @@ package one.mixin.oggOpusPlayer
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.SystemClock
+import androidx.annotation.OptIn
+import androidx.media3.common.util.UnstableApi
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -36,6 +38,7 @@ class OggOpusPlayerPlugin : FlutterPlugin, MethodCallHandler {
         channel.setMethodCallHandler(this)
     }
 
+    @OptIn(UnstableApi::class)
     override fun onMethodCall(call: MethodCall, result: Result) {
         when (call.method) {
             "create" -> {
@@ -50,6 +53,12 @@ class OggOpusPlayerPlugin : FlutterPlugin, MethodCallHandler {
             "play" -> {
                 (call.arguments as? Int)?.let {
                     players[it]?.play()
+                }
+                result.success(null)
+            }
+            "getDuration" -> {
+                (call.arguments as? Int)?.let {
+                   result.success(players[it]?.duration)
                 }
                 result.success(null)
             }
@@ -135,6 +144,7 @@ class OggOpusPlayerPlugin : FlutterPlugin, MethodCallHandler {
         }
     }
 
+    @OptIn(UnstableApi::class)
     private fun handlePlayerStateChanged(id: Int, player: AudioPlayer) {
         channel.invokeMethod(
             "onPlayerStateChanged", mapOf(

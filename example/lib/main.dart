@@ -101,6 +101,8 @@ class _OpusOggPlayerWidgetState extends State<_OpusOggPlayerWidget> {
   Timer? timer;
 
   double _playingPosition = 0;
+  double _playingDuration = 0;
+  PlayerState state = PlayerState.idle;
 
   static const List<double> _kPlaybackSpeedSteps = <double>[0.5, 1, 1.5, 2];
 
@@ -109,6 +111,17 @@ class _OpusOggPlayerWidgetState extends State<_OpusOggPlayerWidget> {
   @override
   void initState() {
     super.initState();
+    _player = OggOpusPlayer(widget.path);
+    _player?.state.addListener(
+      () async {
+        state = _player?.state.value ?? PlayerState.idle;
+        setState(() {});
+        if (_player?.state.value == PlayerState.paused) {
+          _playingDuration = await _player?.getDuration() ?? 0;
+          setState(() {});
+        }
+      },
+    );
     timer = Timer.periodic(const Duration(milliseconds: 50), (Timer timer) {
       setState(() {
         _playingPosition = _player?.currentPosition ?? 0;
@@ -124,13 +137,11 @@ class _OpusOggPlayerWidgetState extends State<_OpusOggPlayerWidget> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final PlayerState state = _player?.state.value ?? PlayerState.idle;
-    return Center(
-      child: Row(
+  Widget build(BuildContext context) => Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Text("position: ${_playingPosition.toStringAsFixed(2)}"),
+          Text("P: ${_playingPosition.toStringAsFixed(2)}"),
+          Text("D: ${_playingDuration.toStringAsFixed(2)}"),
           const SizedBox(height: 8),
           if (state == PlayerState.playing)
             IconButton(
@@ -141,18 +152,8 @@ class _OpusOggPlayerWidgetState extends State<_OpusOggPlayerWidget> {
             )
           else
             IconButton(
-              onPressed: () {
-                _player?.dispose();
-                _speedIndex = 1;
-                _player = OggOpusPlayer(widget.path);
+              onPressed: () async {
                 _player?.play();
-                _player?.state.addListener(() {
-                  setState(() {});
-                  if (_player?.state.value == PlayerState.ended) {
-                    _player?.dispose();
-                    _player = null;
-                  }
-                });
               },
               icon: const Icon(Icons.play_arrow),
             ),
@@ -183,9 +184,7 @@ class _OpusOggPlayerWidgetState extends State<_OpusOggPlayerWidget> {
               child: Text("X${_kPlaybackSpeedSteps[_speedIndex]}"),
             ),
         ],
-      ),
-    );
-  }
+      );
 }
 
 class _RecorderExample extends StatefulWidget {

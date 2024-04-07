@@ -4,7 +4,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'ogg_opus_player'
-  s.version          = '0.0.1'
+  s.version          = '1.0.0'
   s.summary          = 'A new flutter plugin project.'
   s.description      = <<-DESC
 A new flutter plugin project.
@@ -15,7 +15,8 @@ A new flutter plugin project.
   s.source           = { :path => '.' }
   s.source_files = 'Classes/**/*', 'Headers/**/*'
   s.dependency 'Flutter'
-  s.platform = :ios, '12.0'
+  s.dependency 'MobileVLCKit'
+  s.platform = :ios, '13.0'
 
   s.ios.vendored_frameworks= 'Frameworks/libogg.xcframework', 'Frameworks/libopus.xcframework', 'Frameworks/libopusenc.xcframework', 'Frameworks/libopusfile.xcframework'
 
