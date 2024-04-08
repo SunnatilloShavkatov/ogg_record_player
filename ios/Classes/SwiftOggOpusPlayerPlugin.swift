@@ -33,6 +33,7 @@ public class SwiftOggOpusPlayerPlugin: NSObject, FlutterPlugin {
     channel.invokeMethod("onPlayerStateChanged", arguments: [
       "state": player.status.rawValue,
       "position": player.postion,
+      "duration": player.duration,
       "playerId": id,
       "updateTime": systemUptime(),
       "speed": player.playRate,

@@ -24,7 +24,10 @@ abstract class OggOpusPlayer {
   ValueListenable<PlayerState> get state;
 
   /// Current playing position, in seconds.
-  double get currentPosition;
+  int get currentPosition;
+
+  /// playing duration, in seconds.
+  int get duration;
 
   /// Current playing position, in seconds.
   Future<int?> getDuration();

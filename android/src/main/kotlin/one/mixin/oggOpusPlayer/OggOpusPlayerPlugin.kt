@@ -172,6 +172,7 @@ class OggOpusPlayerPlugin : FlutterPlugin, MethodCallHandler {
                 "playerId" to id,
                 "updateTime" to SystemClock.uptimeMillis(),
                 "position" to player.position,
+                "duration" to player.duration,
                 "speed" to player.playbackRate,
             )
         )

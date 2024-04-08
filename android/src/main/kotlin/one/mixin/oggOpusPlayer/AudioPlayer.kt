@@ -16,9 +16,10 @@ import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 typealias OnPlayerStatusChangedCallback = (AudioPlayer) -> Unit
 
 enum class Status {
-    Stopped,
+    Initial,
     Playing,
     Paused,
+    Stopped,
 }
 
 @UnstableApi
@@ -42,22 +43,31 @@ class AudioPlayer(
             volume = 1.0f
         }
 
-    val position: Double get() = player.currentPosition.toDouble() / 1000
+    val position: Int get() = player.currentPosition.toInt() / 1000
 
     val duration: Int get() = player.duration.toInt() / 1000
 
     val state: Status
         get() {
-            if (player.playbackState == Player.STATE_READY) {
-                return if (player.playWhenReady) {
-                    Status.Playing
-                } else {
-                    Status.Paused
+            when (player.playbackState) {
+                Player.STATE_IDLE -> {
+                    return Status.Initial
                 }
-            } else if (player.playbackState == Player.STATE_ENDED) {
-                return Status.Stopped
+
+                Player.STATE_READY -> {
+                    return if (player.playWhenReady) {
+                        Status.Playing
+                    } else {
+                        Status.Paused
+                    }
+                }
+
+                Player.STATE_ENDED -> {
+                    return Status.Stopped
+                }
+
+                else -> return Status.Paused
             }
-            return Status.Paused
         }
 
     private var _playbackRate: Double = 1.0

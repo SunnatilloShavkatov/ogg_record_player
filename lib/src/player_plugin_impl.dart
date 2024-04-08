@@ -10,11 +10,13 @@ import "package:system_clock/system_clock.dart";
 PlayerState _convertFromRawValue(int state) {
   switch (state) {
     case 0:
-      return PlayerState.ended;
+      return PlayerState.idle;
     case 1:
       return PlayerState.playing;
     case 2:
       return PlayerState.paused;
+    case 3:
+      return PlayerState.ended;
     default:
       assert(false, "unknown state: $state");
       return PlayerState.error;
@@ -50,7 +52,8 @@ Future<dynamic> _handleMethodCall(MethodCall call) async {
       final Map<dynamic, dynamic> args =
           call.arguments as Map<dynamic, dynamic>;
       final int state = args["state"] as int;
-      final double position = args["position"] as double;
+      final int position = args["position"];
+      final int duration = args["duration"];
       final int playerId = args["playerId"] as int;
       final int updateTime = args["updateTime"] as int;
       final double? speed = args["speed"] as double?;
@@ -62,11 +65,14 @@ Future<dynamic> _handleMethodCall(MethodCall call) async {
       player
         .._lastUpdateTimeStamp = updateTime
         .._position = position
+        .._duration = duration
         .._playbackRate = speed ?? 1.0;
     case "onRecorderCanceled":
-      final int recorderId = call.arguments["recorderId"] as int;
+      final Map<dynamic, dynamic> args =
+          call.arguments as Map<dynamic, dynamic>;
+      final int recorderId = args["recorderId"] as int;
       final OggOpusRecorderPluginImpl? recorder = _recorders[recorderId];
-      final int reason = call.arguments["reason"] as int;
+      final int reason = args["reason"] as int;
       if (recorder == null) {
         return;
       }
@@ -131,15 +137,20 @@ class OggOpusPlayerPluginImpl extends OggOpusPlayer {
 
   final ValueNotifier<PlayerState> _playerState =
       ValueNotifier<PlayerState>(PlayerState.idle);
-  double _position = 0;
+  int _position = 0;
 
   // [_position] updated timestamp, in milliseconds.
   int _lastUpdateTimeStamp = -1;
 
   double _playbackRate = 1;
 
+  int _duration = 1;
+
   @override
-  double get currentPosition {
+  int get duration => _duration;
+
+  @override
+  int get currentPosition {
     if (_lastUpdateTimeStamp == -1) {
       return 0;
     }
@@ -153,7 +164,7 @@ class OggOpusPlayerPluginImpl extends OggOpusPlayer {
       return _position;
     }
 
-    return _position + (offset / 1000.0) * _playbackRate;
+    return (_position + (offset / 1000.0) * _playbackRate).toInt();
   }
 
   @override

@@ -34,7 +34,6 @@ analyzer:
     # Built-in rules
     body_might_complete_normally_nullable: error
     # Error rules
-    avoid_dynamic_calls: warning
     avoid_empty_else: error
     avoid_returning_null_for_future: error
     avoid_slow_async_io: error
@@ -207,7 +206,6 @@ linter:
   rules:
     - always_declare_return_types
     - always_put_control_body_on_new_line
-    - always_specify_types
     - always_use_package_imports
     - annotate_overrides
     - annotate_redeclares
@@ -217,7 +215,6 @@ linter:
     - avoid_catching_errors
     - avoid_classes_with_only_static_members
     - avoid_double_and_int_checks
-    - avoid_dynamic_calls
     - avoid_empty_else
     - avoid_equals_and_hash_code_on_mutable_classes
     - avoid_escaping_inner_quotes

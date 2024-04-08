@@ -10,9 +10,10 @@ import MobileVLCKit
 import Combine
 
 enum Status: Int {
-  case stopped = 0
-  case playing
-  case paused
+  case initial = 0
+  case playing = 1
+  case paused = 2
+  case stopped = 3
 }
 
 struct Track {
@@ -36,7 +37,7 @@ class OggPlayer: ObservableObject {
         }
     }
     
-    var postion : Double = 0
+    var postion : Int = 0
 
     let track: Track
     let path: String
@@ -66,17 +67,14 @@ class OggPlayer: ObservableObject {
 
     func play() {
         self.mediaPlayer.play()
-        status = Status.playing
     }
 
     func stop() {
         self.mediaPlayer.stop()
-        status = Status.stopped
     }
 
     func pause() {
         self.mediaPlayer.pause()
-        status = Status.stopped
     }
 
     func setPosition(_ position: Double) {
@@ -94,22 +92,26 @@ class OggPlayer: ObservableObject {
 
     func setupObservers() {
         observeTimeElapsed()
-        observeRemainingTime()
+        observeRemainingState()
     }
 
     func cancelObservers() {
         cancellable.forEach { $0.cancel() }
     }
 
-    private func observeRemainingTime() {
+    private func observeRemainingState() {
         mediaPlayer
             .publisher(for: \.state, options: [.new])
             .sink { state in
-                print("remainingTime \(String(describing: state))")
-                print("remainingTime \(state)")
-                if(state.rawValue == 0){
+//                print("Player State \(String(describing: state))")
+//                print("state \(state)")
+                if (state.rawValue == 0) {
                     self.status = Status.paused
                     self.newInit()
+                } else if( state.rawValue == 6) {
+                    self.status = Status.paused
+                } else if(state.rawValue == 5) {
+                    self.status = Status.playing
                 }
             }
             .store(in: &cancellable)
@@ -119,9 +121,12 @@ class OggPlayer: ObservableObject {
         mediaPlayer
             .publisher(for: \.time, options: [.new])
             .sink { time in
-                print("Time: \(time)")
-                print("postion: \(time.value?.doubleValue ?? 0)")
-                self.postion = (time.value?.doubleValue ?? 0) / 1000
+//                print("Time: \(time)")
+//                print("postion: \(time.value?.doubleValue ?? 0)")
+                self.postion = Int((time.value?.intValue ?? 0) / 1000)
+                if (time.stringValue == "--:--") {
+                    self.status = Status.initial
+                }
             }
             .store(in: &cancellable)
     }

@@ -101,7 +101,7 @@ class _OpusOggPlayerWidgetState extends State<_OpusOggPlayerWidget> {
 
   Timer? timer;
 
-  double _playingPosition = 0;
+  int _playingPosition = 0;
   int _playingDuration = 0;
   PlayerState state = PlayerState.idle;
 
@@ -113,21 +113,12 @@ class _OpusOggPlayerWidgetState extends State<_OpusOggPlayerWidget> {
   void initState() {
     super.initState();
     state = _player.state.value;
-    getDuration();
-    timer = Timer.periodic(const Duration(milliseconds: 50), (Timer timer) {
+    timer = Timer.periodic(const Duration(milliseconds: 500), (Timer timer) {
       setState(() {
         _playingPosition = _player.currentPosition;
+        _playingDuration = _player.duration;
       });
     });
-  }
-
-  Future<void> getDuration() async {
-    final int? duration = await _player.getDuration();
-    if (duration != null) {
-      setState(() {
-        _playingDuration = duration;
-      });
-    }
   }
 
   @override
