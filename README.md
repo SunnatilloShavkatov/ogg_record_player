@@ -1,4 +1,4 @@
-# ogg_opus_player
+# ogg_record_player
 
 [![Pub](https://img.shields.io/pub/v/ogg_opus_player.svg)](https://pub.dev/packages/ogg_opus_player)
 
@@ -6,24 +6,21 @@ a ogg opus file player for flutter.
 
 | platform |       | required os version |
 |----------|-------|---------------------|
-| iOS      | ✅     | 10.0                |
-| macOS    | ✅     | 10.12               |
-| Windows  | ✅     |                     |
-| Linux    | ✅     |                     |
+| iOS      | ✅     | 13.0                |
 | Android  | ✅     | minSdk 21           |
 
 ## Getting Started
 
-1. add `ogg_opus_player` to your pubspec.yaml
+1. add `ogg_record_player` to your pubspec.yaml
 
     ```yaml
-      ogg_opus_player: $latest_version
+      ogg_record_player: $latest_version
     ```
 
 2. then you can play your opus ogg file from `OggOpusPlayer`
 
     ```dart
-    import 'package:ogg_opus_player/ogg_opus_player.dart';
+    import 'package:ogg_record_player/ogg_record_player.dart';
     
     void playOggOpusFile() {
       final player = OggOpusPlayer("file_path");

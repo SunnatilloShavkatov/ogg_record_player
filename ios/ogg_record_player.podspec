@@ -3,7 +3,7 @@
 # Run `pod lib lint ogg_opus_player.podspec` to validate before publishing.
 #
 Pod::Spec.new do |s|
-  s.name             = 'ogg_opus_player'
+  s.name             = 'ogg_record_player'
   s.version          = '1.0.0'
   s.summary          = 'A new flutter plugin project.'
   s.description      = <<-DESC

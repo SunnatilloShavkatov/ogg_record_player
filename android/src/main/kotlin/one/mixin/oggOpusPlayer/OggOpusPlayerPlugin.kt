@@ -34,7 +34,7 @@ class OggOpusPlayerPlugin : FlutterPlugin, MethodCallHandler {
 
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         context = flutterPluginBinding.applicationContext
-        channel = MethodChannel(flutterPluginBinding.binaryMessenger, "ogg_opus_player")
+        channel = MethodChannel(flutterPluginBinding.binaryMessenger, "ogg_record_player")
         channel.setMethodCallHandler(this)
     }
 

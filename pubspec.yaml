@@ -1,4 +1,4 @@
-name: ogg_opus_player
+name: ogg_record_player
 description: An ogg opus file player and recorder for flutter.
 version: 1.0.0
 homepage: https://github.com/SunnatilloShavkatov/ogg_opus_player.git
@@ -22,7 +22,7 @@ flutter:
   plugin:
     platforms:
       ios:
-        pluginClass: OggOpusPlayerPlugin
+        pluginClass: SwiftOggOpusPlayerPlugin
       android:
         package: one.mixin.oggOpusPlayer
         pluginClass: OggOpusPlayerPlugin

@@ -3,8 +3,8 @@ import "dart:io";
 
 import "package:flutter/foundation.dart";
 import "package:flutter/services.dart";
-import "package:ogg_opus_player/src/player.dart";
-import "package:ogg_opus_player/src/player_state.dart";
+import "package:ogg_record_player/src/player.dart";
+import "package:ogg_record_player/src/player_state.dart";
 import "package:system_clock/system_clock.dart";
 
 PlayerState _convertFromRawValue(int state) {
@@ -23,7 +23,7 @@ PlayerState _convertFromRawValue(int state) {
   }
 }
 
-const MethodChannel _channel = MethodChannel("ogg_opus_player");
+const MethodChannel _channel = MethodChannel("ogg_record_player");
 
 final Map<int, OggOpusPlayerPluginImpl> _players =
     <int, OggOpusPlayerPluginImpl>{};

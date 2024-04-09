@@ -2,8 +2,8 @@ import "dart:io";
 
 import "package:flutter/foundation.dart";
 
-import "package:ogg_opus_player/src/player_plugin_impl.dart";
-import "package:ogg_opus_player/src/player_state.dart";
+import "package:ogg_record_player/src/player_plugin_impl.dart";
+import "package:ogg_record_player/src/player_state.dart";
 
 abstract class OggOpusPlayer {
   factory OggOpusPlayer(String path) {
