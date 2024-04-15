@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package one.mixin.oggOpusPlayer
 
 import android.annotation.SuppressLint
@@ -20,7 +22,7 @@ class OpusAudioRecorder(
         private const val SAMPLE_RATE = 16000
         private const val BUFFER_SIZE_FACTOR = 2
 
-        const val STATE_NOT_INIT = 0
+        private const val STATE_NOT_INIT = 0
         const val STATE_IDLE = 1
         const val STATE_RECORDING = 2
 
@@ -68,6 +70,7 @@ class OpusAudioRecorder(
     init {
         try {
             val phoneStateListener = object : PhoneStateListener() {
+                @Deprecated("Deprecated in Java")
                 override fun onCallStateChanged(state: Int, incomingNumber: String?) {
                     if (state != TelephonyManager.CALL_STATE_IDLE) {
                         stopRecording(AudioEndStatus.CANCEL)
@@ -219,10 +222,6 @@ class OpusAudioRecorder(
                 }
             }
         )
-    }
-
-    fun stop() {
-        stopRecording(AudioEndStatus.CANCEL)
     }
 
     private fun stopRecordingInternal(endStatus: AudioEndStatus) {

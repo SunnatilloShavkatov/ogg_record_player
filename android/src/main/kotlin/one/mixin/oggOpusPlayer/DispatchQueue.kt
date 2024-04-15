@@ -64,8 +64,9 @@ class DispatchQueue(threadName: String) : Thread() {
 
     override fun run() {
         Looper.prepare()
+        val mainLooper = Looper.getMainLooper()
         handler = @SuppressLint("HandlerLeak")
-        object : Handler() {
+        object : Handler(mainLooper) {
             override fun handleMessage(msg: Message) {
                 this@DispatchQueue.handleMessage(msg)
             }
