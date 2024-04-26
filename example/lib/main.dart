@@ -1,3 +1,5 @@
+// ignore_for_file: discarded_futures
+
 import "dart:async";
 import "dart:io";
 
@@ -35,7 +37,7 @@ Future<void> main() async {
 }
 
 class _PlayAssetExample extends StatefulWidget {
-  const _PlayAssetExample({super.key, required this.directory});
+  const _PlayAssetExample({required this.directory});
 
   final String directory;
 
@@ -76,7 +78,7 @@ class _PlayAssetExampleState extends State<_PlayAssetExample> {
   Widget build(BuildContext context) => _copyCompleted
       ? _OpusOggPlayerWidget(
           path: _path,
-          key: ValueKey(_path),
+          key: ValueKey<String>(_path),
         )
       : const Center(
           child: SizedBox(
@@ -97,11 +99,12 @@ class _OpusOggPlayerWidget extends StatefulWidget {
 }
 
 class _OpusOggPlayerWidgetState extends State<_OpusOggPlayerWidget> {
-  OggOpusPlayer? _player;
+  late OggOpusPlayer? _player;
 
   Timer? timer;
 
-  double _playingPosition = 0;
+  int _playingPosition = 0;
+  int _playingDuration = 0;
 
   static const List<double> _kPlaybackSpeedSteps = <double>[0.5, 1, 1.5, 2];
 
@@ -110,10 +113,15 @@ class _OpusOggPlayerWidgetState extends State<_OpusOggPlayerWidget> {
   @override
   void initState() {
     super.initState();
-    timer = Timer.periodic(const Duration(milliseconds: 50), (Timer timer) {
-      setState(() {
-        _playingPosition = (_player?.currentPosition ?? 0).toDouble();
-      });
+    initPlayer();
+    timer = Timer.periodic(const Duration(milliseconds: 500), (Timer timer) {
+      final PlayerState state = _player?.state.value ?? PlayerState.idle;
+      if (state == PlayerState.playing) {
+        setState(() {
+          _playingPosition = _player?.currentPosition ?? 0;
+          _playingDuration = _player?.duration ?? 0;
+        });
+      }
     });
   }
 
@@ -124,6 +132,23 @@ class _OpusOggPlayerWidgetState extends State<_OpusOggPlayerWidget> {
     super.dispose();
   }
 
+  Future<void> initPlayer() async {
+    _speedIndex = 1;
+    _player = OggOpusPlayer(widget.path);
+    await session.configure(
+      const AudioSessionConfiguration.music(),
+    );
+    final bool active = await session.setActive(true);
+    debugPrint("active: $active");
+    _player?.state.addListener(() async {
+      setState(() {});
+      if (_player?.state.value == PlayerState.ended) {
+        _player?.dispose();
+        _player = null;
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final PlayerState state = _player?.state.value ?? PlayerState.idle;
@@ -131,7 +156,9 @@ class _OpusOggPlayerWidgetState extends State<_OpusOggPlayerWidget> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Text("position: ${_playingPosition.toStringAsFixed(2)}"),
+          Text(
+            "p: ${_playingPosition.toStringAsFixed(2)} / d: ${_playingDuration.toStringAsFixed(2)}",
+          ),
           const SizedBox(height: 8),
           if (state == PlayerState.playing)
             IconButton(
@@ -143,51 +170,26 @@ class _OpusOggPlayerWidgetState extends State<_OpusOggPlayerWidget> {
           else
             IconButton(
               onPressed: () async {
-                _player?.dispose();
-                _speedIndex = 1;
-                _player = OggOpusPlayer(widget.path);
-                await session.configure(
-                  const AudioSessionConfiguration.music(),
-                );
-                final bool active = await session.setActive(true);
-                debugPrint("active: $active");
-                _player?.play();
-                _player?.state.addListener(() async {
-                  setState(() {});
-                  if (_player?.state.value == PlayerState.ended) {
-                    _player?.dispose();
-                    _player = null;
-                  }
-                });
+                if (state == PlayerState.paused) {
+                  _player?.play();
+                  return;
+                } else {
+                  await initPlayer();
+                  _player?.play();
+                }
               },
               icon: const Icon(Icons.play_arrow),
             ),
-          IconButton(
+          TextButton(
             onPressed: () {
-              setState(() {
-                debugPrint("ended");
-                _player?.dispose();
-                _player = null;
-                session.setActive(false).then((bool value) {
-                  debugPrint("active: $value");
-                }).onError((Object? error, StackTrace stackTrace) {
-                  debugPrint("error: $error");
-                });
-              });
+              _speedIndex++;
+              if (_speedIndex >= _kPlaybackSpeedSteps.length) {
+                _speedIndex = 0;
+              }
+              _player?.setPlaybackRate(_kPlaybackSpeedSteps[_speedIndex]);
             },
-            icon: const Icon(Icons.stop),
+            child: Text("X${_kPlaybackSpeedSteps[_speedIndex]}"),
           ),
-          if (_player != null)
-            TextButton(
-              onPressed: () {
-                _speedIndex++;
-                if (_speedIndex >= _kPlaybackSpeedSteps.length) {
-                  _speedIndex = 0;
-                }
-                _player?.setPlaybackRate(_kPlaybackSpeedSteps[_speedIndex]);
-              },
-              child: Text("X${_kPlaybackSpeedSteps[_speedIndex]}"),
-            ),
         ],
       ),
     );
@@ -229,12 +231,15 @@ class _RecorderExampleState extends State<_RecorderExample> {
                   File(_recordedPath).deleteSync();
                 }
                 File(_recordedPath).createSync(recursive: true);
-                await session.configure(const AudioSessionConfiguration(
-                  avAudioSessionCategory: AVAudioSessionCategory.playAndRecord,
-                  avAudioSessionCategoryOptions:
-                      AVAudioSessionCategoryOptions.allowBluetooth,
-                  avAudioSessionMode: AVAudioSessionMode.spokenAudio,
-                ));
+                await session.configure(
+                  const AudioSessionConfiguration(
+                    avAudioSessionCategory:
+                        AVAudioSessionCategory.playAndRecord,
+                    avAudioSessionCategoryOptions:
+                        AVAudioSessionCategoryOptions.allowBluetooth,
+                    avAudioSessionMode: AVAudioSessionMode.spokenAudio,
+                  ),
+                );
                 await session.setActive(true);
                 final OggOpusRecorder recorder = OggOpusRecorder(_recordedPath)
                   ..start();

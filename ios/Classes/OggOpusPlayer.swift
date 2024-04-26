@@ -1,7 +1,7 @@
 import AVFoundation
 import Foundation
 
-fileprivate let audioQueueBufferSize: Int32 = 11520 // Should be smaller than AudioQueueBufferRef.mAudioDataByteSize
+fileprivate let audioQueueBufferSize: Int32 = 11520
 
 final class OggOpusPlayer {
   enum Error: Swift.Error {
@@ -13,9 +13,10 @@ final class OggOpusPlayer {
   }
 
   enum Status: Int {
-    case stopped = 0
-    case playing
-    case paused
+    case initial = 0
+    case playing = 1
+    case paused = 2
+    case stopped = 3
   }
 
   var onStatusChanged: ((OggOpusPlayer) -> Void)?
@@ -139,6 +140,8 @@ final class OggOpusPlayer {
   func play() {
     assert(Queue.main.isCurrent)
     switch status {
+    case .initial:
+      break
     case .stopped:
       status = .playing
       for i in 0 ..< numberOfBuffers {
