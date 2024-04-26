@@ -8,18 +8,32 @@ import "package:ogg_record_player/src/player_state.dart";
 import "package:system_clock/system_clock.dart";
 
 PlayerState _convertFromRawValue(int state) {
-  switch (state) {
-    case 0:
-      return PlayerState.idle;
-    case 1:
-      return PlayerState.playing;
-    case 2:
-      return PlayerState.paused;
-    case 3:
-      return PlayerState.ended;
-    default:
-      assert(false, "unknown state: $state");
-      return PlayerState.error;
+  if (Platform.isAndroid) {
+    switch (state) {
+      case 0:
+        return PlayerState.idle;
+      case 1:
+        return PlayerState.playing;
+      case 2:
+        return PlayerState.paused;
+      case 3:
+        return PlayerState.ended;
+      default:
+        assert(false, "unknown state: $state");
+        return PlayerState.error;
+    }
+  } else {
+    switch (state) {
+      case 0:
+        return PlayerState.ended;
+      case 1:
+        return PlayerState.playing;
+      case 2:
+        return PlayerState.paused;
+      default:
+        assert(false, "unknown state: $state");
+        return PlayerState.error;
+    }
   }
 }
 
@@ -52,8 +66,8 @@ Future<dynamic> _handleMethodCall(MethodCall call) async {
       final Map<dynamic, dynamic> args =
           call.arguments as Map<dynamic, dynamic>;
       final int state = args["state"] as int;
-      final int position = args["position"];
-      final int duration = args["duration"];
+      final num position = args["position"];
+      final int? duration = args["duration"] ?? 1;
       final int playerId = args["playerId"] as int;
       final int updateTime = args["updateTime"] as int;
       final double? speed = args["speed"] as double?;
@@ -64,8 +78,8 @@ Future<dynamic> _handleMethodCall(MethodCall call) async {
       player._playerState.value = _convertFromRawValue(state);
       player
         .._lastUpdateTimeStamp = updateTime
-        .._position = position
-        .._duration = duration
+        .._position = position.toInt()
+        .._duration = duration ?? 1
         .._playbackRate = speed ?? 1.0;
     case "onRecorderCanceled":
       final Map<dynamic, dynamic> args =

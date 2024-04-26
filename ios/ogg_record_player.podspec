@@ -15,8 +15,7 @@ A new flutter plugin project.
   s.source           = { :path => '.' }
   s.source_files = 'Classes/**/*', 'Headers/**/*'
   s.dependency 'Flutter'
-  s.dependency 'MobileVLCKit'
-  s.platform = :ios, '13.0'
+  s.platform = :ios, '12.0'
 
   s.ios.vendored_frameworks= 'Frameworks/libogg.xcframework', 'Frameworks/libopus.xcframework', 'Frameworks/libopusenc.xcframework', 'Frameworks/libopusfile.xcframework'
 

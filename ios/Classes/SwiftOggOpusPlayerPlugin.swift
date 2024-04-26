@@ -3,7 +3,7 @@ import UIKit
 
 // key -> playerId
 // value -> OggOpusPlayer
-private var playerDictionary: [Int: OggPlayer] = [:]
+private var playerDictionary: [Int: OggOpusPlayer] = [:]
 
 private var recorderDictionary: [Int: OggOpusRecorder] = [:]
 
@@ -15,17 +15,16 @@ public class SwiftOggOpusPlayerPlugin: NSObject, FlutterPlugin {
   }
 
   let channel: FlutterMethodChannel
-    
+
   public init(channel: FlutterMethodChannel) {
     self.channel = channel
     super.init()
   }
 
-  private func handlePlayerStateChanged(id: Int, _ player: OggPlayer) {
+  private func handlePlayerStateChanged(id: Int, _ player: OggOpusPlayer) {
     channel.invokeMethod("onPlayerStateChanged", arguments: [
       "state": player.status.rawValue,
-      "position": player.postion,
-      "duration": player.duration,
+      "position": player.currentTime,
       "playerId": id,
       "updateTime": systemUptime(),
       "speed": player.playRate,
@@ -39,15 +38,17 @@ public class SwiftOggOpusPlayerPlugin: NSObject, FlutterPlugin {
         result(FlutterError(code: "1", message: "path can not be null", details: nil))
         break
       }
-      let player = OggPlayer(
-        track: Track(filePath: URL(fileURLWithPath: path)), path: path
-      )
+      do {
+        let player = try OggOpusPlayer(path: path)
         let id = generatedPlayerId()
         player.onStatusChanged = { _ in
           self.handlePlayerStateChanged(id: id, player)
         }
         playerDictionary[id] = player
         result(id)
+      } catch {
+        result(FlutterError(code: "2", message: error.localizedDescription, details: nil))
+      }
     case "play":
       if let playerId = call.arguments as? Int {
         playerDictionary[playerId]?.play()
@@ -65,11 +66,7 @@ public class SwiftOggOpusPlayerPlugin: NSObject, FlutterPlugin {
       }
       result(nil)
     case "getDuration":
-      if let playerId = call.arguments as? Int {
-        result(playerDictionary[playerId]?.duration)
-      } else{
-        result(nil)
-      }
+      result(nil)
     case "setPlaybackSpeed":
       if let args = call.arguments as? [String: Any],
          let playerId = args["playerId"] as? Int,

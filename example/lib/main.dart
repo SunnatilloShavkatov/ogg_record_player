@@ -1,20 +1,21 @@
-// ignore_for_file: discarded_futures
-
 import "dart:async";
 import "dart:io";
 
+import "package:audio_session/audio_session.dart";
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
 import "package:ogg_record_player/ogg_record_player.dart";
 import "package:path/path.dart" as p;
 import "package:path_provider/path_provider.dart";
-import "package:share_plus/share_plus.dart";
+
+late AudioSession session;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final Directory tempDir = await getTemporaryDirectory();
   final String workDir = p.join(tempDir.path, "ogg_opus_player");
   debugPrint("workDir: $workDir");
+  session = await AudioSession.instance;
   runApp(
     MaterialApp(
       home: Scaffold(
@@ -22,9 +23,8 @@ Future<void> main() async {
           title: const Text("Plugin example app"),
         ),
         body: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            _PlayAsset(directory: workDir),
+            _PlayAssetExample(directory: workDir),
             const SizedBox(height: 20),
             _RecorderExample(dir: workDir),
           ],
@@ -34,16 +34,16 @@ Future<void> main() async {
   );
 }
 
-class _PlayAsset extends StatefulWidget {
-  const _PlayAsset({required this.directory});
+class _PlayAssetExample extends StatefulWidget {
+  const _PlayAssetExample({super.key, required this.directory});
 
   final String directory;
 
   @override
-  _PlayAssetState createState() => _PlayAssetState();
+  _PlayAssetExampleState createState() => _PlayAssetExampleState();
 }
 
-class _PlayAssetState extends State<_PlayAsset> {
+class _PlayAssetExampleState extends State<_PlayAssetExample> {
   bool _copyCompleted = false;
 
   String _path = "";
@@ -76,7 +76,7 @@ class _PlayAssetState extends State<_PlayAsset> {
   Widget build(BuildContext context) => _copyCompleted
       ? _OpusOggPlayerWidget(
           path: _path,
-          key: ValueKey<String>(_path),
+          key: ValueKey(_path),
         )
       : const Center(
           child: SizedBox(
@@ -97,13 +97,11 @@ class _OpusOggPlayerWidget extends StatefulWidget {
 }
 
 class _OpusOggPlayerWidgetState extends State<_OpusOggPlayerWidget> {
-  late final OggOpusPlayer _player = OggOpusPlayer(widget.path);
+  OggOpusPlayer? _player;
 
   Timer? timer;
 
-  int _playingPosition = 0;
-  int _playingDuration = 0;
-  PlayerState state = PlayerState.idle;
+  double _playingPosition = 0;
 
   static const List<double> _kPlaybackSpeedSteps = <double>[0.5, 1, 1.5, 2];
 
@@ -112,11 +110,9 @@ class _OpusOggPlayerWidgetState extends State<_OpusOggPlayerWidget> {
   @override
   void initState() {
     super.initState();
-    state = _player.state.value;
-    timer = Timer.periodic(const Duration(milliseconds: 500), (Timer timer) {
+    timer = Timer.periodic(const Duration(milliseconds: 50), (Timer timer) {
       setState(() {
-        _playingPosition = _player.currentPosition;
-        _playingDuration = _player.duration;
+        _playingPosition = (_player?.currentPosition ?? 0).toDouble();
       });
     });
   }
@@ -124,53 +120,78 @@ class _OpusOggPlayerWidgetState extends State<_OpusOggPlayerWidget> {
   @override
   void dispose() {
     timer?.cancel();
-    _player.dispose();
+    _player?.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) => ValueListenableBuilder<PlayerState>(
-        valueListenable: _player.state,
-        builder: (_, PlayerState state, __) => Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Text("P: ${countToTime(_playingPosition)}"),
-            const SizedBox(width: 8),
-            Text("D: ${countToTime(_playingDuration)}"),
-            const SizedBox(width: 8),
+  Widget build(BuildContext context) {
+    final PlayerState state = _player?.state.value ?? PlayerState.idle;
+    return Center(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Text("position: ${_playingPosition.toStringAsFixed(2)}"),
+          const SizedBox(height: 8),
+          if (state == PlayerState.playing)
             IconButton(
               onPressed: () {
-                if (state == PlayerState.playing) {
-                  _player.pause();
-                } else {
-                  _player.play();
-                }
+                _player?.pause();
               },
-              icon: Icon(
-                state != PlayerState.playing
-                    ? Icons.play_arrow_rounded
-                    : Icons.pause_rounded,
-              ),
-            ),
+              icon: const Icon(Icons.pause),
+            )
+          else
             IconButton(
-              onPressed: () {
-                Share.shareXFiles(<XFile>[XFile(widget.path)]);
+              onPressed: () async {
+                _player?.dispose();
+                _speedIndex = 1;
+                _player = OggOpusPlayer(widget.path);
+                await session.configure(
+                  const AudioSessionConfiguration.music(),
+                );
+                final bool active = await session.setActive(true);
+                debugPrint("active: $active");
+                _player?.play();
+                _player?.state.addListener(() async {
+                  setState(() {});
+                  if (_player?.state.value == PlayerState.ended) {
+                    _player?.dispose();
+                    _player = null;
+                  }
+                });
               },
-              icon: const Icon(Icons.share),
+              icon: const Icon(Icons.play_arrow),
             ),
+          IconButton(
+            onPressed: () {
+              setState(() {
+                debugPrint("ended");
+                _player?.dispose();
+                _player = null;
+                session.setActive(false).then((bool value) {
+                  debugPrint("active: $value");
+                }).onError((Object? error, StackTrace stackTrace) {
+                  debugPrint("error: $error");
+                });
+              });
+            },
+            icon: const Icon(Icons.stop),
+          ),
+          if (_player != null)
             TextButton(
               onPressed: () {
                 _speedIndex++;
                 if (_speedIndex >= _kPlaybackSpeedSteps.length) {
                   _speedIndex = 0;
                 }
-                _player.setPlaybackRate(_kPlaybackSpeedSteps[_speedIndex]);
+                _player?.setPlaybackRate(_kPlaybackSpeedSteps[_speedIndex]);
               },
               child: Text("X${_kPlaybackSpeedSteps[_speedIndex]}"),
             ),
-          ],
-        ),
-      );
+        ],
+      ),
+    );
+  }
 }
 
 class _RecorderExample extends StatefulWidget {
@@ -202,12 +223,19 @@ class _RecorderExampleState extends State<_RecorderExample> {
           const SizedBox(height: 8),
           if (_recorder == null)
             IconButton(
-              onPressed: () {
+              onPressed: () async {
                 final File file = File(_recordedPath);
                 if (file.existsSync()) {
                   File(_recordedPath).deleteSync();
                 }
                 File(_recordedPath).createSync(recursive: true);
+                await session.configure(const AudioSessionConfiguration(
+                  avAudioSessionCategory: AVAudioSessionCategory.playAndRecord,
+                  avAudioSessionCategoryOptions:
+                      AVAudioSessionCategoryOptions.allowBluetooth,
+                  avAudioSessionMode: AVAudioSessionMode.spokenAudio,
+                ));
+                await session.setActive(true);
                 final OggOpusRecorder recorder = OggOpusRecorder(_recordedPath)
                   ..start();
                 setState(() {
@@ -226,6 +254,12 @@ class _RecorderExampleState extends State<_RecorderExample> {
                 _recorder?.dispose();
                 setState(() {
                   _recorder = null;
+                  session.setActive(
+                    false,
+                    avAudioSessionSetActiveOptions:
+                        AVAudioSessionSetActiveOptions
+                            .notifyOthersOnDeactivation,
+                  );
                 });
               },
               icon: const Icon(Icons.stop),
@@ -235,10 +269,4 @@ class _RecorderExampleState extends State<_RecorderExample> {
             _OpusOggPlayerWidget(path: _recordedPath),
         ],
       );
-}
-
-String countToTime(num count) {
-  final int minute = count ~/ 60;
-  final int second = (count % 60).toInt();
-  return "0$minute:${second < 10 ? "0$second" : second}";
 }
