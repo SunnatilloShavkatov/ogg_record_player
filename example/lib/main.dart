@@ -15,15 +15,13 @@ late AudioSession session;
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final Directory tempDir = await getTemporaryDirectory();
-  final String workDir = p.join(tempDir.path, "ogg_opus_player");
+  final String workDir = p.join(tempDir.path, "ogg_record_player");
   debugPrint("workDir: $workDir");
   session = await AudioSession.instance;
   runApp(
     MaterialApp(
       home: Scaffold(
-        appBar: AppBar(
-          title: const Text("Plugin example app"),
-        ),
+        appBar: AppBar(title: const Text("Plugin example app")),
         body: Column(
           children: <Widget>[
             _PlayAssetExample(directory: workDir),
