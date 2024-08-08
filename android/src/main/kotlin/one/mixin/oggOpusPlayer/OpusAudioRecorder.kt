@@ -26,7 +26,7 @@ class OpusAudioRecorder(
         const val STATE_IDLE = 1
         const val STATE_RECORDING = 2
 
-        private const val MAX_RECORD_DURATION = 60000
+        private const val MAX_RECORD_DURATION = 60000 * 3
 
         var state: Int = STATE_NOT_INIT
 
