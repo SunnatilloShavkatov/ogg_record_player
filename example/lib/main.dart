@@ -58,7 +58,7 @@ class _PlayAssetExampleState extends State<_PlayAssetExample> {
     final Directory dir = await getApplicationDocumentsDirectory();
     final File dest = File(p.join(dir.path, "test.ogg"));
     _path = dest.path;
-    if (await dest.exists()) {
+    if (dest.existsSync()) {
       setState(() {
         _copyCompleted = true;
       });
