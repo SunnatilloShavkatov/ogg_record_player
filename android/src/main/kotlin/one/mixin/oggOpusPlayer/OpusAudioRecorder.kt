@@ -80,7 +80,7 @@ class OpusAudioRecorder(
             }
             (ctx.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager?)
                 ?.listen(phoneStateListener, PhoneStateListener.LISTEN_CALL_STATE)
-        } catch (ignore: Exception) {
+        } catch (_: Exception) {
         }
     }
 
