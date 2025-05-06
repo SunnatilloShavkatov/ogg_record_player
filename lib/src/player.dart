@@ -1,16 +1,16 @@
-import "dart:io";
+import 'dart:io';
 
-import "package:flutter/foundation.dart";
+import 'package:flutter/foundation.dart';
 
-import "package:ogg_record_player/src/player_plugin_impl.dart";
-import "package:ogg_record_player/src/player_state.dart";
+import 'package:ogg_record_player/src/player_plugin_impl.dart';
+import 'package:ogg_record_player/src/player_state.dart';
 
 abstract class OggOpusPlayer {
   factory OggOpusPlayer(String path) {
     if (Platform.isIOS || Platform.isMacOS || Platform.isAndroid) {
       return OggOpusPlayerPluginImpl(path);
     }
-    throw UnsupportedError("Platform not supported");
+    throw UnsupportedError('Platform not supported');
   }
 
   OggOpusPlayer.create();
@@ -42,7 +42,7 @@ abstract class OggOpusRecorder {
     if (Platform.isIOS || Platform.isMacOS || Platform.isAndroid) {
       return OggOpusRecorderPluginImpl(path);
     }
-    throw UnsupportedError("Platform not supported");
+    throw UnsupportedError('Platform not supported');
   }
 
   OggOpusRecorder.create();

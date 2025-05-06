@@ -1,33 +1,30 @@
 // ignore_for_file: discarded_futures
 
-import "dart:async";
-import "dart:io";
+import 'dart:async';
+import 'dart:io';
 
-import "package:audio_session/audio_session.dart";
-import "package:flutter/material.dart";
-import "package:flutter/services.dart";
-import "package:ogg_record_player/ogg_record_player.dart";
-import "package:path/path.dart" as p;
-import "package:path_provider/path_provider.dart";
+import 'package:audio_session/audio_session.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:ogg_record_player/ogg_record_player.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 late AudioSession session;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final Directory tempDir = await getTemporaryDirectory();
-  final String workDir = p.join(tempDir.path, "ogg_record_player");
-  debugPrint("workDir: $workDir");
+  final String workDir = p.join(tempDir.path, 'ogg_record_player');
+  debugPrint('workDir: $workDir');
   session = await AudioSession.instance;
   runApp(
     MaterialApp(
       home: Scaffold(
-        appBar: AppBar(title: const Text("Plugin example app")),
+        appBar: AppBar(title: const Text('Plugin example app')),
         body: Column(
-          children: <Widget>[
-            _PlayAssetExample(directory: workDir),
-            const SizedBox(height: 20),
-            _RecorderExample(dir: workDir),
-          ],
+          spacing: 20,
+          children: <Widget>[_PlayAssetExample(directory: workDir), _RecorderExample(dir: workDir)],
         ),
       ),
     ),
@@ -46,7 +43,7 @@ class _PlayAssetExample extends StatefulWidget {
 class _PlayAssetExampleState extends State<_PlayAssetExample> {
   bool _copyCompleted = false;
 
-  String _path = "";
+  String _path = '';
 
   @override
   void initState() {
@@ -56,7 +53,7 @@ class _PlayAssetExampleState extends State<_PlayAssetExample> {
 
   Future<void> _copyAssets() async {
     final Directory dir = await getApplicationDocumentsDirectory();
-    final File dest = File(p.join(dir.path, "test.ogg"));
+    final File dest = File(p.join(dir.path, 'test.ogg'));
     _path = dest.path;
     if (dest.existsSync()) {
       setState(() {
@@ -65,7 +62,7 @@ class _PlayAssetExampleState extends State<_PlayAssetExample> {
       return;
     }
 
-    final ByteData bytes = await rootBundle.load("audios/test.ogg");
+    final ByteData bytes = await rootBundle.load('audios/test.ogg');
     await dest.writeAsBytes(bytes.buffer.asUint8List());
     setState(() {
       _copyCompleted = true;
@@ -73,18 +70,10 @@ class _PlayAssetExampleState extends State<_PlayAssetExample> {
   }
 
   @override
-  Widget build(BuildContext context) => _copyCompleted
-      ? _OpusOggPlayerWidget(
-          path: _path,
-          key: ValueKey<String>(_path),
-        )
-      : const Center(
-          child: SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(),
-          ),
-        );
+  Widget build(BuildContext context) =>
+      _copyCompleted
+          ? _OpusOggPlayerWidget(path: _path, key: ValueKey<String>(_path))
+          : const Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator()));
 }
 
 class _OpusOggPlayerWidget extends StatefulWidget {
@@ -133,11 +122,9 @@ class _OpusOggPlayerWidgetState extends State<_OpusOggPlayerWidget> {
   Future<void> initPlayer() async {
     _speedIndex = 1;
     _player = OggOpusPlayer(widget.path);
-    await session.configure(
-      const AudioSessionConfiguration.music(),
-    );
+    await session.configure(const AudioSessionConfiguration.music());
     final bool active = await session.setActive(true);
-    debugPrint("active: $active");
+    debugPrint('active: $active');
     _player?.state.addListener(() async {
       setState(() {});
       if (_player?.state.value == PlayerState.ended) {
@@ -154,9 +141,7 @@ class _OpusOggPlayerWidgetState extends State<_OpusOggPlayerWidget> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Text(
-            "p: ${_playingPosition.toStringAsFixed(2)} / d: ${_playingDuration.toStringAsFixed(2)}",
-          ),
+          Text('p: ${_playingPosition.toStringAsFixed(2)} / d: ${_playingDuration.toStringAsFixed(2)}'),
           const SizedBox(height: 8),
           if (state == PlayerState.playing)
             IconButton(
@@ -186,7 +171,7 @@ class _OpusOggPlayerWidgetState extends State<_OpusOggPlayerWidget> {
               }
               _player?.setPlaybackRate(_kPlaybackSpeedSteps[_speedIndex]);
             },
-            child: Text("X${_kPlaybackSpeedSteps[_speedIndex]}"),
+            child: Text('X${_kPlaybackSpeedSteps[_speedIndex]}'),
           ),
         ],
       ),
@@ -195,9 +180,7 @@ class _OpusOggPlayerWidgetState extends State<_OpusOggPlayerWidget> {
 }
 
 class _RecorderExample extends StatefulWidget {
-  const _RecorderExample({
-    required this.dir,
-  });
+  const _RecorderExample({required this.dir});
 
   final String dir;
 
@@ -213,63 +196,57 @@ class _RecorderExampleState extends State<_RecorderExample> {
   @override
   void initState() {
     super.initState();
-    _recordedPath = p.join(widget.dir, "test_recorded.ogg");
+    _recordedPath = p.join(widget.dir, 'test_recorded.ogg');
   }
 
   @override
   Widget build(BuildContext context) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          const SizedBox(height: 8),
-          if (_recorder == null)
-            IconButton(
-              onPressed: () async {
-                final File file = File(_recordedPath);
-                if (file.existsSync()) {
-                  File(_recordedPath).deleteSync();
-                }
-                File(_recordedPath).createSync(recursive: true);
-                await session.configure(
-                  const AudioSessionConfiguration(
-                    avAudioSessionCategory:
-                        AVAudioSessionCategory.playAndRecord,
-                    avAudioSessionCategoryOptions:
-                        AVAudioSessionCategoryOptions.allowBluetooth,
-                    avAudioSessionMode: AVAudioSessionMode.spokenAudio,
-                  ),
-                );
-                await session.setActive(true);
-                final OggOpusRecorder recorder = OggOpusRecorder(_recordedPath)
-                  ..start();
-                setState(() {
-                  _recorder = recorder;
-                });
-              },
-              icon: const Icon(Icons.keyboard_voice_outlined),
-            )
-          else
-            IconButton(
-              onPressed: () async {
-                await _recorder?.stop();
-                debugPrint("recording stopped");
-                debugPrint("duration: ${await _recorder?.duration()}");
-                debugPrint("waveform: ${await _recorder?.getWaveformData()}");
-                _recorder?.dispose();
-                setState(() {
-                  _recorder = null;
-                  session.setActive(
-                    false,
-                    avAudioSessionSetActiveOptions:
-                        AVAudioSessionSetActiveOptions
-                            .notifyOthersOnDeactivation,
-                  );
-                });
-              },
-              icon: const Icon(Icons.stop),
-            ),
-          const SizedBox(height: 8),
-          if (_recorder == null && File(_recordedPath).existsSync())
-            _OpusOggPlayerWidget(path: _recordedPath),
-        ],
-      );
+    mainAxisSize: MainAxisSize.min,
+    children: <Widget>[
+      const SizedBox(height: 8),
+      if (_recorder == null)
+        IconButton(
+          onPressed: () async {
+            final File file = File(_recordedPath);
+            if (file.existsSync()) {
+              File(_recordedPath).deleteSync();
+            }
+            File(_recordedPath).createSync(recursive: true);
+            await session.configure(
+              const AudioSessionConfiguration(
+                avAudioSessionCategory: AVAudioSessionCategory.playAndRecord,
+                avAudioSessionCategoryOptions: AVAudioSessionCategoryOptions.allowBluetooth,
+                avAudioSessionMode: AVAudioSessionMode.spokenAudio,
+              ),
+            );
+            await session.setActive(true);
+            final OggOpusRecorder recorder = OggOpusRecorder(_recordedPath)..start();
+            setState(() {
+              _recorder = recorder;
+            });
+          },
+          icon: const Icon(Icons.keyboard_voice_outlined),
+        )
+      else
+        IconButton(
+          onPressed: () async {
+            await _recorder?.stop();
+            debugPrint('recording stopped');
+            debugPrint('duration: ${await _recorder?.duration()}');
+            debugPrint('waveform: ${await _recorder?.getWaveformData()}');
+            _recorder?.dispose();
+            setState(() {
+              _recorder = null;
+              session.setActive(
+                false,
+                avAudioSessionSetActiveOptions: AVAudioSessionSetActiveOptions.notifyOthersOnDeactivation,
+              );
+            });
+          },
+          icon: const Icon(Icons.stop),
+        ),
+      const SizedBox(height: 8),
+      if (_recorder == null && File(_recordedPath).existsSync()) _OpusOggPlayerWidget(path: _recordedPath),
+    ],
+  );
 }

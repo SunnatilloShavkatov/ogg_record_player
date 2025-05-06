@@ -1,7 +1,1 @@
-enum PlayerState {
-  error,
-  idle,
-  playing,
-  paused,
-  ended,
-}
+enum PlayerState { error, idle, playing, paused, ended }
