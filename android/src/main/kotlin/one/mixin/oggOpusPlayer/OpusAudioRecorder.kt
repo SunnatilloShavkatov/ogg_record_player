@@ -65,8 +65,7 @@ class OpusAudioRecorder(
             priority = Thread.MAX_PRIORITY
         }
     }
-
-
+    
     init {
         try {
             val phoneStateListener = object : PhoneStateListener() {
