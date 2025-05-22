@@ -1,5 +1,3 @@
-// ignore_for_file: discarded_futures
-
 import 'dart:async';
 import 'dart:io';
 
@@ -24,7 +22,10 @@ Future<void> main() async {
         appBar: AppBar(title: const Text('Plugin example app')),
         body: Column(
           spacing: 20,
-          children: <Widget>[_PlayAssetExample(directory: workDir), _RecorderExample(dir: workDir)],
+          children: <Widget>[
+            _PlayAssetExample(directory: workDir),
+            _RecorderExample(dir: workDir),
+          ],
         ),
       ),
     ),
@@ -48,7 +49,7 @@ class _PlayAssetExampleState extends State<_PlayAssetExample> {
   @override
   void initState() {
     super.initState();
-    _copyAssets();
+    unawaited(_copyAssets());
   }
 
   Future<void> _copyAssets() async {
@@ -70,10 +71,9 @@ class _PlayAssetExampleState extends State<_PlayAssetExample> {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      _copyCompleted
-          ? _OpusOggPlayerWidget(path: _path, key: ValueKey<String>(_path))
-          : const Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator()));
+  Widget build(BuildContext context) => _copyCompleted
+      ? _OpusOggPlayerWidget(path: _path, key: ValueKey<String>(_path))
+      : const Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator()));
 }
 
 class _OpusOggPlayerWidget extends StatefulWidget {
@@ -100,7 +100,7 @@ class _OpusOggPlayerWidgetState extends State<_OpusOggPlayerWidget> {
   @override
   void initState() {
     super.initState();
-    initPlayer();
+    unawaited(initPlayer());
     timer = Timer.periodic(const Duration(milliseconds: 500), (Timer timer) {
       final PlayerState state = _player?.state.value ?? PlayerState.idle;
       if (state == PlayerState.playing) {
@@ -235,9 +235,9 @@ class _RecorderExampleState extends State<_RecorderExample> {
             debugPrint('duration: ${await _recorder?.duration()}');
             debugPrint('waveform: ${await _recorder?.getWaveformData()}');
             _recorder?.dispose();
-            setState(() {
+            setState(() async {
               _recorder = null;
-              session.setActive(
+              await session.setActive(
                 false,
                 avAudioSessionSetActiveOptions: AVAudioSessionSetActiveOptions.notifyOthersOnDeactivation,
               );
