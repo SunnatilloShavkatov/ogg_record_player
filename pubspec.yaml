@@ -1,5 +1,5 @@
 name: ogg_record_player
-version: 1.0.6
+version: 1.0.7
 description: "An ogg opus file player and recorder for flutter."
 homepage: https://github.com/SunnatilloShavkatov/ogg_record_player
 
@@ -10,11 +10,11 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  system_clock: ^2.0.0
+  system_clock: ^2.0.1
   plugin_platform_interface: ^2.1.8
 
 dev_dependencies:
-  analysis_lints: ^1.0.1
+  analysis_lints: ^1.0.2
   flutter_test:
     sdk: flutter
 

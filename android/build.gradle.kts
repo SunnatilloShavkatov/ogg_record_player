@@ -52,7 +52,7 @@ android {
 
 
 dependencies {
-    val mediaVersion = "1.6.1"
+    val mediaVersion = "1.7.1"
 
     implementation("androidx.media3:media3-exoplayer:$mediaVersion")
     implementation("androidx.media3:media3-common:$mediaVersion")
