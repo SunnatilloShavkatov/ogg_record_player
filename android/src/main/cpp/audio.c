@@ -37,6 +37,10 @@ JNIEXPORT jint JNICALL Java_one_mixin_oggOpusPlayer_OpusAudioRecorder_startRecor
 }
 
 JNIEXPORT jint JNICALL Java_one_mixin_oggOpusPlayer_OpusAudioRecorder_writeFrame(JNIEnv *env, jclass clazz, jshortArray frame, jint len) {
+    if (enc == NULL) {
+        LOGE("Encoder is NULL in writeFrame, aborting write");
+        return OPE_BAD_ARG;
+    }
     jshort *sampleBuffer = (*env) -> GetShortArrayElements(env, frame, 0);
     int result = ope_encoder_write(enc, sampleBuffer, len);
     (*env)->ReleaseShortArrayElements(env, frame, sampleBuffer, 0);
