@@ -43,8 +43,4 @@ app.*.map.json
 /android/app/release
 /pubspec.lock
 /devtools_options.yaml
-/package/udevs_video_player/example/pubspec.lock
-/packages/syncfusion_flutter_pdfviewer/pubspec.lock
-/packages/syncfusion_flutter_pdfviewer/example/pubspec.lock
-/lib/constants/.env.dart
 /packages/voice_message_package/pubspec.lock
