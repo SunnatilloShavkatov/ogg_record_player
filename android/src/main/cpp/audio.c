@@ -41,16 +41,30 @@ JNIEXPORT jint JNICALL Java_one_mixin_oggOpusPlayer_OpusAudioRecorder_writeFrame
         LOGE("Encoder is NULL in writeFrame, aborting write");
         return OPE_BAD_ARG;
     }
-    jshort *sampleBuffer = (*env) -> GetShortArrayElements(env, frame, 0);
+    if (frame == NULL || len <= 0) {
+        LOGE("Invalid frame or length");
+        return OPE_BAD_ARG;
+    }
+    jshort *sampleBuffer = (*env)->GetShortArrayElements(env, frame, NULL);
+    if (sampleBuffer == NULL) {
+        LOGE("sampleBuffer is NULL");
+        return OPE_BAD_ARG;
+    }
     int result = ope_encoder_write(enc, sampleBuffer, len);
     (*env)->ReleaseShortArrayElements(env, frame, sampleBuffer, 0);
     return result;
 }
 
 JNIEXPORT void JNICALL Java_one_mixin_oggOpusPlayer_OpusAudioRecorder_stopRecord(JNIEnv *env, jclass clazz) {
-    ope_encoder_drain(enc);
-    ope_encoder_destroy(enc);
-    ope_comments_destroy(comments);
+    if (enc != NULL) {
+        ope_encoder_drain(enc);
+        ope_encoder_destroy(enc);
+        enc = NULL;
+    }
+    if (comments != NULL) {
+        ope_comments_destroy(comments);
+        comments = NULL;
+    }
     LOGI("ope encoder destroy");
 }
 
