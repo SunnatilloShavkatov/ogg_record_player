@@ -17,9 +17,9 @@ abstract class OggOpusPlayer {
 
   void pause();
 
-  void play();
+  Future<void> play();
 
-  void dispose();
+  Future<void> dispose();
 
   ValueListenable<PlayerState> get state;
 
@@ -34,7 +34,7 @@ abstract class OggOpusPlayer {
 
   /// Set playback rate, in the range 0.5 through 2.0.
   /// 1.0 is normal speed (default).
-  void setPlaybackRate(double speed);
+  Future<void> setPlaybackRate(double speed);
 }
 
 abstract class OggOpusRecorder {

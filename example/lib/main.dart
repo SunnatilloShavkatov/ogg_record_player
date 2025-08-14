@@ -101,7 +101,7 @@ class _OpusOggPlayerWidgetState extends State<_OpusOggPlayerWidget> {
   void initState() {
     super.initState();
     unawaited(initPlayer());
-    timer = Timer.periodic(const Duration(milliseconds: 500), (Timer timer) {
+    timer = Timer.periodic(const Duration(milliseconds: 100), (Timer timer) {
       final PlayerState state = _player?.state.value ?? PlayerState.idle;
       if (state == PlayerState.playing) {
         setState(() {

@@ -1,4 +1,3 @@
-// ignore_for_file: avoid_dynamic_calls
 import 'dart:async';
 import 'dart:io';
 
@@ -50,8 +49,8 @@ Future<dynamic> _handleMethodCall(MethodCall call) async {
     case 'onPlayerStateChanged':
       final Map<dynamic, dynamic> args = call.arguments as Map<dynamic, dynamic>;
       final int state = args['state'] as int;
-      final num position = args['position'];
-      final num? duration = args['duration'] ?? 1;
+      final num position = args['position'] as num;
+      final num? duration = args['duration'] as num?;
       final int playerId = args['playerId'] as int;
       final int updateTime = args['updateTime'] as int;
       final double? speed = args['speed'] as double?;
@@ -99,19 +98,18 @@ Future<dynamic> _handleMethodCall(MethodCall call) async {
 class OggOpusPlayerPluginImpl extends OggOpusPlayer {
   OggOpusPlayerPluginImpl(this._path) : super.create() {
     _initChannelIfNeeded();
-    assert(() {
-      if (_path.isEmpty) {
-        throw Exception('path can not be empty');
-      }
-      if (!File(_path).existsSync()) {
-        throw Exception('file not exists');
-      }
-      return true;
-    }(), '');
+    
+    // Validate path
+    if (_path.isEmpty) {
+      throw ArgumentError('Path cannot be empty');
+    }
+    if (!File(_path).existsSync()) {
+      throw ArgumentError('File does not exist: $_path');
+    }
 
     scheduleMicrotask(() async {
       try {
-        _playerId = await _channel.invokeMethod('create', _path);
+        _playerId = await _channel.invokeMethod('create', _path) as int;
         _players[_playerId] = this;
         _playerState.value = PlayerState.paused;
       } on Exception catch (error, stacktrace) {
@@ -150,12 +148,12 @@ class OggOpusPlayerPluginImpl extends OggOpusPlayer {
       return _position;
     }
     final int offset = SystemClock.uptime().inMilliseconds - _lastUpdateTimeStamp;
-    assert(offset >= 0, 'offset should be positive.');
     if (offset < 0) {
       return _position;
     }
 
-    return (_position + (offset / 1000.0) * _playbackRate).toInt();
+    final int calculatedPosition = (_position + (offset / 1000.0) * _playbackRate).toInt();
+    return calculatedPosition.clamp(0, _duration);
   }
 
   @override
@@ -163,35 +161,59 @@ class OggOpusPlayerPluginImpl extends OggOpusPlayer {
 
   @override
   Future<void> play({bool waitCreate = true}) async {
-    if (waitCreate) {
-      await _createCompleter.future;
+    try {
+      if (waitCreate) {
+        await _createCompleter.future;
+      }
+      if (_playerId <= 0) {
+        return;
+      }
+      await _channel.invokeMethod('play', _playerId);
+    } catch (e) {
+      debugPrint('Error playing audio: $e');
+      _playerState.value = PlayerState.error;
     }
-    if (_playerId <= 0) {
-      return;
-    }
-    await _channel.invokeMethod('play', _playerId);
   }
 
   @override
   Future<void> pause() async {
-    if (_playerId <= 0) {
-      return;
+    try {
+      if (_playerId <= 0) {
+        return;
+      }
+      await _channel.invokeMethod('pause', _playerId);
+    } catch (e) {
+      debugPrint('Error pausing audio: $e');
     }
-    await _channel.invokeMethod('pause', _playerId);
   }
 
   @override
   Future<void> setPlaybackRate(double speed) async {
-    await _createCompleter.future;
-    if (_playerId <= 0) {
-      return;
+    try {
+      await _createCompleter.future;
+      if (_playerId <= 0) {
+        return;
+      }
+      if (speed < 0.5 || speed > 2.0) {
+        throw ArgumentError('Speed must be between 0.5 and 2.0');
+      }
+      await _channel.invokeMethod('setPlaybackSpeed', <String, num>{'playerId': _playerId, 'speed': speed});
+    } catch (e) {
+      debugPrint('Error setting playback rate: $e');
     }
-    await _channel.invokeMethod('setPlaybackSpeed', <String, num>{'playerId': _playerId, 'speed': speed});
   }
 
   @override
   Future<void> dispose() async {
-    await _channel.invokeMethod('stop', _playerId);
+    try {
+      if (_playerId > 0) {
+        await _channel.invokeMethod('stop', _playerId);
+        _players.remove(_playerId);
+      }
+      _playerState.dispose();
+    } catch (e) {
+      debugPrint('Error disposing player: $e');
+    }
   }
 
   @override
@@ -208,9 +230,15 @@ class OggOpusPlayerPluginImpl extends OggOpusPlayer {
 class OggOpusRecorderPluginImpl extends OggOpusRecorder {
   OggOpusRecorderPluginImpl(this._path) : super.create() {
     _initChannelIfNeeded();
+    
+    // Validate path
+    if (_path.isEmpty) {
+      throw ArgumentError('Path cannot be empty');
+    }
+    
     scheduleMicrotask(() async {
       try {
-        _id = await _channel.invokeMethod('createRecorder', _path);
+        _id = await _channel.invokeMethod('createRecorder', _path) as int;
         _recorders[_id] = this;
       } on Exception catch (e) {
         debugPrint('create recorder failed. error: $e');
@@ -231,26 +259,41 @@ class OggOpusRecorderPluginImpl extends OggOpusRecorder {
 
   @override
   Future<void> start() async {
-    await _createCompleter.future;
-    if (_id <= 0) {
-      return;
+    try {
+      await _createCompleter.future;
+      if (_id <= 0) {
+        return;
+      }
+      await _channel.invokeMethod('startRecord', _id);
+    } catch (e) {
+      debugPrint('Error starting recording: $e');
     }
-    await _channel.invokeMethod('startRecord', _id);
   }
 
   @override
   Future<void> stop() async {
-    await _createCompleter.future;
-    if (_id <= 0) {
-      return;
+    try {
+      await _createCompleter.future;
+      if (_id <= 0) {
+        return;
+      }
+      await _channel.invokeMethod('stopRecord', _id);
+      await _stopCompleter.future;
+    } catch (e) {
+      debugPrint('Error stopping recording: $e');
     }
-    await _channel.invokeMethod('stopRecord', _id);
-    await _stopCompleter.future;
   }
 
   @override
   Future<void> dispose() async {
-    await _channel.invokeMethod('destroyRecorder', _id);
+    try {
+      if (_id > 0) {
+        await _channel.invokeMethod('destroyRecorder', _id);
+        _recorders.remove(_id);
+      }
+    } catch (e) {
+      debugPrint('Error disposing recorder: $e');
+    }
   }
 
   @override

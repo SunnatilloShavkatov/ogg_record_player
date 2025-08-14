@@ -1,6 +1,6 @@
 # ogg_record_player
 
-[![Pub](https://img.shields.io/pub/v/ogg_opus_player.svg)](https://pub.dev/packages/ogg_opus_player)
+[![Pub](https://img.shields.io/pub/v/ogg_record_player.svg)](https://pub.dev/packages/ogg_record_player)
 
 a ogg opus file player for flutter.
 
@@ -28,7 +28,7 @@ a ogg opus file player for flutter.
       player.play();
       player.pause();
     
-      player.dipose();
+      player.dispose();
     }
     ```
 
