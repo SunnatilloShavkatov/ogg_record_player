@@ -15,11 +15,11 @@ abstract class OggOpusPlayer {
 
   OggOpusPlayer.create();
 
-  void pause();
+  Future<void> pause();
 
-  void play();
+  Future<void> play();
 
-  void dispose();
+  Future<void> dispose();
 
   ValueListenable<PlayerState> get state;
 
@@ -34,7 +34,7 @@ abstract class OggOpusPlayer {
 
   /// Set playback rate, in the range 0.5 through 2.0.
   /// 1.0 is normal speed (default).
-  void setPlaybackRate(double speed);
+  Future<void> setPlaybackRate(double speed);
 }
 
 abstract class OggOpusRecorder {
@@ -47,11 +47,11 @@ abstract class OggOpusRecorder {
 
   OggOpusRecorder.create();
 
-  void start();
+  Future<void> start();
 
   Future<void> stop();
 
-  void dispose();
+  Future<void> dispose();
 
   /// get the recorded audio waveform data.
   /// must be called after [stop] is called.

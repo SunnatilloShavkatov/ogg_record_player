@@ -1,4 +1,3 @@
-// ignore_for_file: avoid_dynamic_calls
 import 'dart:async';
 import 'dart:io';
 
@@ -48,10 +47,10 @@ void _initChannelIfNeeded() {
 Future<dynamic> _handleMethodCall(MethodCall call) async {
   switch (call.method) {
     case 'onPlayerStateChanged':
-      final Map<dynamic, dynamic> args = call.arguments as Map<dynamic, dynamic>;
+      final Map<dynamic, dynamic> args = call.arguments ?? {};
       final int state = args['state'] as int;
       final num position = args['position'];
-      final num? duration = args['duration'] ?? 1;
+      final num duration = args['duration'] ?? 1;
       final int playerId = args['playerId'] as int;
       final int updateTime = args['updateTime'] as int;
       final double? speed = args['speed'] as double?;
@@ -63,10 +62,10 @@ Future<dynamic> _handleMethodCall(MethodCall call) async {
       player
         .._lastUpdateTimeStamp = updateTime
         .._position = position.toInt()
-        .._duration = (duration ?? 1).toInt()
+        .._duration = duration.toInt()
         .._playbackRate = speed ?? 1.0;
     case 'onRecorderCanceled':
-      final Map<dynamic, dynamic> args = call.arguments as Map<dynamic, dynamic>;
+      final Map<dynamic, dynamic> args = call.arguments ?? {};
       final int recorderId = args['recorderId'] as int;
       final OggOpusRecorderPluginImpl? recorder = _recorders[recorderId];
       final int reason = args['reason'] as int;
@@ -75,28 +74,30 @@ Future<dynamic> _handleMethodCall(MethodCall call) async {
       }
       recorder.onCanceled(reason);
     case 'onRecorderStartFailed':
-      final int recorderId = call.arguments['recorderId'] as int;
+      final Map<dynamic, dynamic> args = call.arguments ?? {};
+      final int recorderId = args['recorderId'] as int;
       final OggOpusRecorderPluginImpl? recorder = _recorders[recorderId];
       if (recorder == null) {
         return;
       }
-      final String reason = call.arguments['error'] as String;
+      final String reason = args['error'] as String;
       debugPrint('onRecorderStartFailed: $reason');
     case 'onRecorderFinished':
-      final int recorderId = call.arguments['recorderId'] as int;
+      final Map<dynamic, dynamic> args = call.arguments ?? {};
+      final int recorderId = args['recorderId'] as int;
       final OggOpusRecorderPluginImpl? recorder = _recorders[recorderId];
       if (recorder == null) {
         return;
       }
-      final int duration = call.arguments['duration'] as int;
-      final List<int> waveform = (call.arguments['waveform'] as List).cast<int>();
+      final int duration = args['duration'] as int;
+      final List<int> waveform = (args['waveform'] as List).cast<int>();
       recorder.onFinished(duration, waveform);
     default:
       break;
   }
 }
 
-class OggOpusPlayerPluginImpl extends OggOpusPlayer {
+final class OggOpusPlayerPluginImpl extends OggOpusPlayer {
   OggOpusPlayerPluginImpl(this._path) : super.create() {
     _initChannelIfNeeded();
     assert(() {
@@ -205,7 +206,7 @@ class OggOpusPlayerPluginImpl extends OggOpusPlayer {
   }
 }
 
-class OggOpusRecorderPluginImpl extends OggOpusRecorder {
+final class OggOpusRecorderPluginImpl extends OggOpusRecorder {
   OggOpusRecorderPluginImpl(this._path) : super.create() {
     _initChannelIfNeeded();
     scheduleMicrotask(() async {

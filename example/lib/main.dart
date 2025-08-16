@@ -1,3 +1,5 @@
+// ignore_for_file: unawaited_futures, discarded_futures
+
 import 'dart:async';
 import 'dart:io';
 
@@ -126,10 +128,12 @@ class _OpusOggPlayerWidgetState extends State<_OpusOggPlayerWidget> {
     final bool active = await session.setActive(true);
     debugPrint('active: $active');
     _player?.state.addListener(() async {
-      setState(() {});
-      if (_player?.state.value == PlayerState.ended) {
-        _player?.dispose();
-        _player = null;
+      if (mounted) {
+        setState(() {});
+        if (_player?.state.value == PlayerState.ended) {
+          _player?.dispose();
+          _player = null;
+        }
       }
     });
   }
@@ -235,11 +239,13 @@ class _RecorderExampleState extends State<_RecorderExample> {
             debugPrint('duration: ${await _recorder?.duration()}');
             debugPrint('waveform: ${await _recorder?.getWaveformData()}');
             _recorder?.dispose();
-            setState(() async {
+            setState(() {
               _recorder = null;
-              await session.setActive(
-                false,
-                avAudioSessionSetActiveOptions: AVAudioSessionSetActiveOptions.notifyOthersOnDeactivation,
+              unawaited(
+                session.setActive(
+                  false,
+                  avAudioSessionSetActiveOptions: AVAudioSessionSetActiveOptions.notifyOthersOnDeactivation,
+                ),
               );
             });
           },

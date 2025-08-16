@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.example.ogg_opus_player_example"
-    compileSdk = 35
+    compileSdk = 36
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -23,7 +23,7 @@ android {
         applicationId = "com.example.ogg_opus_player_example"
         minSdk = 24
         // noinspection OldTargetApi
-        targetSdk = 34
+        targetSdk = 35
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
