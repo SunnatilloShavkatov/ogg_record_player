@@ -41,6 +41,12 @@ android {
         jvmTarget = JavaVersion.VERSION_11.toString()
     }
 
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+
     sourceSets["main"].java.srcDirs("src/main/kotlin")
 
     externalNativeBuild {

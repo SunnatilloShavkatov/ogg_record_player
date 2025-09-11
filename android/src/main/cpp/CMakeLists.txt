@@ -27,3 +27,5 @@ target_link_libraries(ogg_opus_player_plugin
         lib_opus
         lib_ogg
         log)
+
+target_link_options(ogg_opus_player_plugin PRIVATE "-Wl,-z,max-page-size=16384")
