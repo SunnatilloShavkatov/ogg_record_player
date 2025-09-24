@@ -13,8 +13,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
     }
 
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+        }
     }
 
     sourceSets["main"].java.srcDirs("src/main/kotlin")
@@ -22,8 +24,7 @@ android {
     defaultConfig {
         applicationId = "com.example.ogg_opus_player_example"
         minSdk = 24
-        // noinspection OldTargetApi
-        targetSdk = 35
+        targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
