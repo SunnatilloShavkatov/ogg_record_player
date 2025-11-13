@@ -1,7 +1,7 @@
 name: ogg_opus_player_example
 version: 1.0.0+1
 publish_to: "none"
-description: "Demonstrates how to use the ogg_record_player plugin."
+description: "Demonstrates how to use the ogg_opus_player plugin."
 
 environment:
   sdk: ">=3.9.0 <4.0.0"
@@ -17,7 +17,7 @@ dependencies:
   path_provider: ^2.1.5
 
 dev_dependencies:
-  analysis_lints: ^1.0.3
+  analysis_lints: ^1.0.5
   flutter_test:
     sdk: flutter
 

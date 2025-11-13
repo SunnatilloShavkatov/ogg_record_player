@@ -10,11 +10,11 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  system_clock: ^2.0.1
+  system_clock: ^3.0.0
   plugin_platform_interface: ^2.1.8
 
 dev_dependencies:
-  analysis_lints: ^1.0.3
+  analysis_lints: ^1.0.5
   flutter_test:
     sdk: flutter
 
