@@ -35,6 +35,14 @@ fileprivate enum RemoteIOBus {
   static let input: UInt32 = 1
 }
 
+private func waveformMagnitude(from sample: Int16) -> UInt16 {
+  // `abs(Int16.min)` overflows because 32768 is not representable as Int16.
+  if sample == .min {
+    return UInt16(Int(Int16.max) + 1)
+  }
+  return UInt16(abs(Int(sample)))
+}
+
 final class OggOpusRecorder {
   enum Error: Swift.Error {
     case mediaServiceWereReset
@@ -71,7 +79,7 @@ final class OggOpusRecorder {
 
   private var retainedSelf: Unmanaged<OggOpusRecorder>?
   private var waveformSamples = Data()
-  private var waveformPeak: Int16 = 0
+  private var waveformPeak: UInt16 = 0
   private var waveformPeakCount = 0
   private var numberOfEncodedSamples: UInt = 0
   private var duration: TimeInterval = 0
@@ -408,20 +416,20 @@ extension OggOpusRecorder {
   }
 
   private func processWaveformSamples(with pcmData: Data) {
-    let numberOfSamples = pcmData.count / 2
+    let numberOfSamples = pcmData.count / MemoryLayout<Int16>.size
     guard numberOfSamples > 0 else {
       return
     }
     pcmData.withUnsafeBytes { (ptr: UnsafeRawBufferPointer) in
       let samples = ptr.bindMemory(to: Int16.self)
       for i in 0 ..< numberOfSamples {
-        let sample = abs(samples.baseAddress!.advanced(by: i).pointee)
+        let sample = waveformMagnitude(from: samples.baseAddress!.advanced(by: i).pointee)
         waveformPeak = max(waveformPeak, sample)
         waveformPeakCount += 1
         if waveformPeakCount >= waveformPeakSampleScope {
           withUnsafeBytes(of: waveformPeak) { peak in
             let bytes = peak.bindMemory(to: UInt8.self).baseAddress!
-            waveformSamples.append(bytes, count: 2)
+            waveformSamples.append(bytes, count: MemoryLayout<UInt16>.size)
           }
           waveformPeak = 0
           waveformPeakCount = 0
@@ -433,17 +441,30 @@ extension OggOpusRecorder {
   private func makeWaveform() -> Data {
     let intensities = malloc(numberOfWaveformIntensities)!
     memset(intensities, 0, numberOfWaveformIntensities)
-    let numberOfRawSamples = waveformSamples.count / 2
-    var minRawSample: Int16 = .max
-    var maxRawSample: Int16 = 0
+    let numberOfRawSamples = waveformSamples.count / MemoryLayout<UInt16>.size
+    guard numberOfRawSamples > 0 else {
+      return Data(bytesNoCopy: intensities, count: numberOfWaveformIntensities, deallocator: .free)
+    }
     waveformSamples.withUnsafeBytes { (ptr: UnsafeRawBufferPointer) in
-      let rawSamples = ptr.bindMemory(to: Int16.self).baseAddress!
+      let rawSamples = ptr.bindMemory(to: UInt16.self).baseAddress!
+      var minRawSample: UInt16 = .max
+      var maxRawSample: UInt16 = 0
       for i in 0 ..< numberOfRawSamples {
         let sample = rawSamples.advanced(by: i).pointee
         minRawSample = min(minRawSample, sample)
         maxRawSample = max(maxRawSample, sample)
       }
-      let delta = Float(UInt8.max) / Float(maxRawSample - minRawSample)
+      let rawRange = UInt32(maxRawSample) - UInt32(minRawSample)
+      guard rawRange > 0 else {
+        if maxRawSample > 0 {
+          for i in 0 ..< numberOfRawSamples {
+            let index = i * numberOfWaveformIntensities / numberOfRawSamples
+            intensities.assumingMemoryBound(to: UInt8.self).advanced(by: index).pointee = UInt8.max
+          }
+        }
+        return
+      }
+      let delta = Float(UInt8.max) / Float(rawRange)
       for i in 0 ..< numberOfRawSamples {
         let index = i * numberOfWaveformIntensities / numberOfRawSamples
         let intensity = min(Float(UInt8.max), Float(rawSamples.advanced(by: i).pointee) * delta)

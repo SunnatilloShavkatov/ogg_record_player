@@ -1,4 +1,3 @@
-// ignore_for_file: unawaited_futures, discarded_futures
 
 import 'dart:async';
 import 'dart:io';
@@ -117,7 +116,7 @@ class _OpusOggPlayerWidgetState extends State<_OpusOggPlayerWidget> {
   @override
   void dispose() {
     timer?.cancel();
-    _player?.dispose();
+    _player?.dispose().ignore();
     super.dispose();
   }
 
@@ -127,11 +126,11 @@ class _OpusOggPlayerWidgetState extends State<_OpusOggPlayerWidget> {
     await session.configure(const AudioSessionConfiguration.music());
     final bool active = await session.setActive(true);
     debugPrint('active: $active');
-    _player?.state.addListener(() async {
+    _player?.state.addListener(()  {
       if (mounted) {
         setState(() {});
         if (_player?.state.value == PlayerState.ended) {
-          _player?.dispose();
+          _player?.dispose().ignore();
           _player = null;
         }
       }
@@ -150,7 +149,7 @@ class _OpusOggPlayerWidgetState extends State<_OpusOggPlayerWidget> {
           if (state == PlayerState.playing)
             IconButton(
               onPressed: () {
-                _player?.pause();
+                _player?.pause().ignore();
               },
               icon: const Icon(Icons.pause),
             )
@@ -158,11 +157,11 @@ class _OpusOggPlayerWidgetState extends State<_OpusOggPlayerWidget> {
             IconButton(
               onPressed: () async {
                 if (state == PlayerState.paused) {
-                  _player?.play();
+                  _player?.play().ignore();
                   return;
                 } else {
                   await initPlayer();
-                  _player?.play();
+                  _player?.play().ignore();
                 }
               },
               icon: const Icon(Icons.play_arrow),
@@ -173,7 +172,7 @@ class _OpusOggPlayerWidgetState extends State<_OpusOggPlayerWidget> {
               if (_speedIndex >= _kPlaybackSpeedSteps.length) {
                 _speedIndex = 0;
               }
-              _player?.setPlaybackRate(_kPlaybackSpeedSteps[_speedIndex]);
+              _player?.setPlaybackRate(_kPlaybackSpeedSteps[_speedIndex]).ignore();
             },
             child: Text('X${_kPlaybackSpeedSteps[_speedIndex]}'),
           ),
@@ -224,7 +223,7 @@ class _RecorderExampleState extends State<_RecorderExample> {
               ),
             );
             await session.setActive(true);
-            final OggOpusRecorder recorder = OggOpusRecorder(_recordedPath)..start();
+            final OggOpusRecorder recorder = OggOpusRecorder(_recordedPath)..start().ignore();
             setState(() {
               _recorder = recorder;
             });
@@ -238,7 +237,7 @@ class _RecorderExampleState extends State<_RecorderExample> {
             debugPrint('recording stopped');
             debugPrint('duration: ${await _recorder?.duration()}');
             debugPrint('waveform: ${await _recorder?.getWaveformData()}');
-            _recorder?.dispose();
+            _recorder?.dispose().ignore();
             setState(() {
               _recorder = null;
               unawaited(

@@ -4,11 +4,11 @@ publish_to: "none"
 description: "Demonstrates how to use the ogg_opus_player plugin."
 
 environment:
-  sdk: ">=3.9.0 <4.0.0"
-  flutter: ">=3.35.0"
+  sdk: ">=3.11.0 <4.0.0"
+  flutter: ">=3.41.0"
 
 dependencies:
-  audio_session: ^0.2.2
+  audio_session: ^0.2.3
   flutter:
     sdk: flutter
   ogg_record_player:
@@ -17,7 +17,7 @@ dependencies:
   path_provider: ^2.1.5
 
 dev_dependencies:
-  analysis_lints: ^1.0.5
+  analysis_lints: ^1.0.9
   flutter_test:
     sdk: flutter
 
