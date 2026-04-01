@@ -11,6 +11,7 @@ import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
 import java.io.File
+import java.util.Collections
 
 /** OggOpusPlayerPlugin */
 class OggOpusPlayerPlugin : FlutterPlugin, MethodCallHandler {
@@ -19,6 +20,7 @@ class OggOpusPlayerPlugin : FlutterPlugin, MethodCallHandler {
 
         private var lastGeneratedId = 0
 
+        @Synchronized
         private fun generatePlayerId(): Int {
             lastGeneratedId++
             return lastGeneratedId
@@ -29,8 +31,8 @@ class OggOpusPlayerPlugin : FlutterPlugin, MethodCallHandler {
     private lateinit var channel: MethodChannel
     private lateinit var context: Context
 
-    private val players = mutableMapOf<Int, AudioPlayer>()
-    private val recorders = mutableMapOf<Int, OpusAudioRecorder>()
+    private val players: MutableMap<Int, AudioPlayer> = Collections.synchronizedMap(mutableMapOf())
+    private val recorders: MutableMap<Int, OpusAudioRecorder> = Collections.synchronizedMap(mutableMapOf())
 
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         context = flutterPluginBinding.applicationContext

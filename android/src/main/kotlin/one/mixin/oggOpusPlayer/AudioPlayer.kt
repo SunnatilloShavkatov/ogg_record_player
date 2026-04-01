@@ -1,7 +1,6 @@
 package one.mixin.oggOpusPlayer
 
 import android.content.Context
-import android.util.Log
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -28,10 +27,6 @@ class AudioPlayer(
     path: String,
     private val callback: OnPlayerStatusChangedCallback,
 ) : Player.Listener {
-
-    companion object {
-        private const val TAG = "AudioPlayer"
-    }
 
     private val player = ExoPlayer.Builder(context)
         .setAudioAttributes(
@@ -99,10 +94,10 @@ class AudioPlayer(
     fun destroy() {
         player.stop()
         player.removeListener(this)
+        player.release()
     }
 
     override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
-        Log.d(TAG, "onPlayWhenReadyChanged: $playWhenReady $reason")
         callback(this)
     }
 

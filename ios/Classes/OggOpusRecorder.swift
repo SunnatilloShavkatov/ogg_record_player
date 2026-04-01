@@ -165,6 +165,9 @@ final class OggOpusRecorder {
         return
       }
       self.close()
+      #if os(iOS)
+        try? AudioSession.shared.deactivate(client: self, notifyOthersOnDeactivation: true)
+      #endif
       try? FileManager.default.removeItem(atPath: self.path)
       DispatchQueue.main.async {
         self.delegate?.oggOpusRecorder(self, didCancelRecordingForReason: reason, userInfo: userInfo)

@@ -100,6 +100,7 @@ public class SwiftOggOpusPlayerPlugin: NSObject, FlutterPlugin {
       result(nil)
     case "destroyRecorder":
       if let id = call.arguments as? Int {
+        recorderDictionary[id]?.cancel(for: .userInitiated)
         recorderDictionary.removeValue(forKey: id)
       }
       result(nil)

@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "one.mixin.oggOpusPlayer"
-version = "1.2.0"
+version = "1.3.0"
 
 buildscript {
     repositories {
@@ -60,7 +60,7 @@ android {
 
 
 dependencies {
-    val mediaVersion = "1.8.0"
+    val mediaVersion = "1.9.3"
 
     implementation("androidx.media3:media3-exoplayer:$mediaVersion")
     implementation("androidx.media3:media3-common:$mediaVersion")

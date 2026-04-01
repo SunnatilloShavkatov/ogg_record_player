@@ -26,13 +26,16 @@ JNIEXPORT jint JNICALL Java_one_mixin_oggOpusPlayer_OpusAudioRecorder_startRecor
     enc = ope_encoder_create_file(pathStr, comments, 16000, 1, 0, &error);
     if (error != OPE_OK) {
         LOGE("Create OggOpusEnc failed");
+        (*env)->ReleaseStringUTFChars(env, path, pathStr);
         return error;
     }
     error = ope_encoder_ctl(enc, OPUS_SET_BITRATE_REQUEST, 16 * 1024);
     if (error != OPE_OK) {
+        (*env)->ReleaseStringUTFChars(env, path, pathStr);
         return error;
     }
 
+    (*env)->ReleaseStringUTFChars(env, path, pathStr);
     return OPE_OK;
 }
 
@@ -118,6 +121,7 @@ JNIEXPORT jbyteArray JNICALL Java_one_mixin_oggOpusPlayer_OpusAudioRecorder_getW
             set_bits(bytes, i * 5, value & 31);
         }
         (*env)->SetByteArrayRegion(env, result, 0, bitStreamLength, (jbyte *) bytes);
+        free(bytes);
     }
 
     free(samples);

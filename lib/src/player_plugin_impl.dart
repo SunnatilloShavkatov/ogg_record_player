@@ -82,6 +82,7 @@ Future<dynamic> _handleMethodCall(MethodCall call) async {
       }
       final String reason = args['error'] as String;
       debugPrint('onRecorderStartFailed: $reason');
+      recorder.onStartFailed(reason);
     case 'onRecorderFinished':
       final Map<dynamic, dynamic> args = call.arguments ?? {};
       final int recorderId = args['recorderId'] as int;
@@ -111,10 +112,19 @@ final class OggOpusPlayerPluginImpl extends OggOpusPlayer {
     }(), '');
 
     scheduleMicrotask(() async {
+      if (_disposed) {
+        _createCompleter.complete();
+        return;
+      }
       try {
         _playerId = await _channel.invokeMethod('create', _path);
-        _players[_playerId] = this;
-        _playerState.value = PlayerState.paused;
+        if (_disposed) {
+          // dispose() was called while we were creating - cleanup native side
+          await _channel.invokeMethod('stop', _playerId);
+        } else {
+          _players[_playerId] = this;
+          _playerState.value = PlayerState.paused;
+        }
       } on Exception catch (error, stacktrace) {
         debugPrint('create play failed. error: $error $stacktrace');
         _playerState.value = PlayerState.error;
@@ -126,6 +136,8 @@ final class OggOpusPlayerPluginImpl extends OggOpusPlayer {
   final String _path;
 
   int _playerId = -1;
+
+  bool _disposed = false;
 
   final Completer<void> _createCompleter = Completer<void>();
 
@@ -192,7 +204,12 @@ final class OggOpusPlayerPluginImpl extends OggOpusPlayer {
 
   @override
   Future<void> dispose() async {
-    await _channel.invokeMethod('stop', _playerId);
+    _disposed = true;
+    await _createCompleter.future;
+    if (_playerId > 0) {
+      _players.remove(_playerId);
+      await _channel.invokeMethod('stop', _playerId);
+    }
   }
 
   @override
@@ -210,9 +227,18 @@ final class OggOpusRecorderPluginImpl extends OggOpusRecorder {
   OggOpusRecorderPluginImpl(this._path) : super.create() {
     _initChannelIfNeeded();
     scheduleMicrotask(() async {
+      if (_disposed) {
+        _createCompleter.complete();
+        return;
+      }
       try {
         _id = await _channel.invokeMethod('createRecorder', _path);
-        _recorders[_id] = this;
+        if (_disposed) {
+          // dispose() was called while we were creating - cleanup native side
+          await _channel.invokeMethod('destroyRecorder', _id);
+        } else {
+          _recorders[_id] = this;
+        }
       } on Exception catch (e) {
         debugPrint('create recorder failed. error: $e');
       }
@@ -223,35 +249,55 @@ final class OggOpusRecorderPluginImpl extends OggOpusRecorder {
   final String _path;
   int _id = -1;
 
+  bool _disposed = false;
+  bool _startFailed = false;
+
   double? _duration;
   List<int>? _waveformData;
 
   final Completer<void> _createCompleter = Completer<void>();
 
-  final Completer<void> _stopCompleter = Completer<void>();
+  Completer<void>? _stopCompleter;
 
   @override
   Future<void> start() async {
     await _createCompleter.future;
-    if (_id <= 0) {
+    if (_id <= 0 || _disposed) {
       return;
     }
-    await _channel.invokeMethod('startRecord', _id);
+    _stopCompleter = Completer<void>();
+    _startFailed = false;
+    try {
+      await _channel.invokeMethod('startRecord', _id);
+    } on Exception {
+      _startFailed = true;
+      _safeCompleteStop();
+      rethrow;
+    }
   }
 
   @override
   Future<void> stop() async {
     await _createCompleter.future;
-    if (_id <= 0) {
+    if (_id <= 0 || _disposed) {
+      return;
+    }
+    // If start failed, don't wait for callback
+    if (_startFailed) {
       return;
     }
     await _channel.invokeMethod('stopRecord', _id);
-    await _stopCompleter.future;
+    await _stopCompleter?.future;
   }
 
   @override
   Future<void> dispose() async {
-    await _channel.invokeMethod('destroyRecorder', _id);
+    _disposed = true;
+    await _createCompleter.future;
+    if (_id > 0) {
+      _recorders.remove(_id);
+      await _channel.invokeMethod('destroyRecorder', _id);
+    }
   }
 
   @override
@@ -260,13 +306,25 @@ final class OggOpusRecorderPluginImpl extends OggOpusRecorder {
   @override
   Future<List<int>> getWaveformData() async => _waveformData ?? <int>[];
 
+  void onStartFailed(String reason) {
+    _startFailed = true;
+    _safeCompleteStop();
+  }
+
   void onCanceled(int reason) {
-    _stopCompleter.complete();
+    _safeCompleteStop();
   }
 
   void onFinished(int duration, List<int> waveform) {
     _duration = duration / 1000;
     _waveformData = waveform;
-    _stopCompleter.complete();
+    _safeCompleteStop();
+  }
+
+  void _safeCompleteStop() {
+    final completer = _stopCompleter;
+    if (completer != null && !completer.isCompleted) {
+      completer.complete();
+    }
   }
 }
