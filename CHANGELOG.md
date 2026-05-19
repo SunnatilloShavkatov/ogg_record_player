@@ -1,4 +1,11 @@
-## Unreleased
+## 1.4.0
+
+### Changed
+- **iOS**: Migrated from CocoaPods to Swift Package Manager (SPM).
+- **iOS**: Unified source structure — `Classes/` removed, sources consolidated under `ios/ogg_record_player/Sources/`.
+- **iOS**: Replaced direct `import libopus/libopusfile/libopusenc` with `ogg_record_player_c` module (conditional import, compatible with both SPM and CocoaPods).
+- **iOS**: Added `opusfile_wrapper.h` — minimal `libopusfile` C interface without `ogg/ogg.h` dependency.
+- **iOS (example)**: Removed CocoaPods integration from example app.
 
 ## 1.3.0
 

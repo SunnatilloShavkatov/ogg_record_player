@@ -4,7 +4,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'ogg_record_player'
-  s.version          = '1.3.0'
+  s.version          = '1.4.0'
   s.summary          = 'A new flutter plugin project.'
   s.description      = <<-DESC
 A new flutter plugin project.
@@ -13,7 +13,9 @@ A new flutter plugin project.
   s.license          = { :file => '../LICENSE' }
   s.author           = { 'Your Company' => 'email@example.com' }
   s.source           = { :path => '.' }
-  s.source_files = 'Classes/**/*', 'Headers/**/*'
+  s.source_files = 'ogg_record_player/Sources/ogg_record_player/**/*.swift',
+                   'ogg_record_player/Sources/ogg_record_player_c/opusenc_set_bitrate.{c,h}',
+                   'ogg_record_player/Sources/ogg_record_player_c/include/*.h'
   s.dependency 'Flutter'
   s.platform = :ios, '15.0'
 
