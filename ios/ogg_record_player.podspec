@@ -14,7 +14,7 @@ A new flutter plugin project.
   s.author           = { 'Your Company' => 'email@example.com' }
   s.source           = { :path => '.' }
   s.source_files = 'ogg_record_player/Sources/ogg_record_player/**/*.swift',
-                   'ogg_record_player/Sources/ogg_record_player_c/opusenc_set_bitrate.{c,h}',
+                   'ogg_record_player/Sources/ogg_record_player_c/opusenc_set_bitrate.c',
                    'ogg_record_player/Sources/ogg_record_player_c/include/*.h'
   s.dependency 'Flutter'
   s.platform = :ios, '15.0'
