@@ -44,3 +44,5 @@ app.*.map.json
 /pubspec.lock
 /devtools_options.yaml
 /android/src/main/cpp/opus/lib/x86/
+/example/android/.kotlin/sessions/
+/example/android/build/reports/problems/
