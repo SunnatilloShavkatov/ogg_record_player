@@ -23,6 +23,7 @@ let package = Package(
       path: "Sources/ogg_record_player_c",
       publicHeadersPath: "include",
       cSettings: [
+        .headerSearchPath(".")
       ]
     ),
     .target(
