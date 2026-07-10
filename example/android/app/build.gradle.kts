@@ -6,6 +6,7 @@ plugins {
 
 android {
     namespace = "com.example.ogg_opus_player_example"
+    ndkVersion = "28.2.13676358"
     compileSdk = 36
 
     compileOptions {

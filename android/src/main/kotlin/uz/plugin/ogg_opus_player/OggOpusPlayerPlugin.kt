@@ -148,6 +148,7 @@ class OggOpusPlayerPlugin : FlutterPlugin, MethodCallHandler {
             "stopRecord" -> {
                 (call.arguments as? Int)?.let {
                     recorders[it]?.stopRecording(AudioEndStatus.SEND)
+                    recorders.remove(it)
                 }
                 result.success(null)
             }

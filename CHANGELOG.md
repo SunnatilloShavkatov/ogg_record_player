@@ -1,3 +1,9 @@
+## 1.4.3
+
+### Fixed
+- **Android**: Fixed memory leaks in `PhoneStateListener`, `OggOpusPlayerPlugin` recorders map, and native C encoder on cancel path.
+- **Android**: Fixed waveform sampling divisor calculation bug.
+
 ## 1.4.2
 
 ### Changed

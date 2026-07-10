@@ -4,7 +4,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'ogg_record_player'
-  s.version          = '1.4.2'
+  s.version          = '1.4.3'
   s.summary          = 'A new flutter plugin project.'
   s.description      = <<-DESC
 A new flutter plugin project.

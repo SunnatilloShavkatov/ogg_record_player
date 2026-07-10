@@ -66,20 +66,42 @@ class OpusAudioRecorder(
         }
     }
     
-    init {
-        try {
-            val phoneStateListener = object : PhoneStateListener() {
-                @Deprecated("Deprecated in Java")
-                override fun onCallStateChanged(state: Int, incomingNumber: String?) {
-                    if (state != TelephonyManager.CALL_STATE_IDLE) {
-                        stopRecording(AudioEndStatus.CANCEL)
-                        callback?.onCancel()
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    private val telephonyManager =
+        ctx.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager?
+
+    // Accessed on the main thread only.
+    private var phoneStateListener: PhoneStateListener? = null
+
+    private fun registerPhoneStateListener() {
+        mainHandler.post {
+            if (phoneStateListener != null) return@post
+            try {
+                val listener = object : PhoneStateListener() {
+                    @Deprecated("Deprecated in Java")
+                    override fun onCallStateChanged(state: Int, incomingNumber: String?) {
+                        if (state != TelephonyManager.CALL_STATE_IDLE) {
+                            stopRecording(AudioEndStatus.CANCEL)
+                            callback?.onCancel()
+                        }
                     }
                 }
+                telephonyManager?.listen(listener, PhoneStateListener.LISTEN_CALL_STATE)
+                phoneStateListener = listener
+            } catch (_: Exception) {
             }
-            (ctx.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager?)
-                ?.listen(phoneStateListener, PhoneStateListener.LISTEN_CALL_STATE)
-        } catch (_: Exception) {
+        }
+    }
+
+    private fun unregisterPhoneStateListener() {
+        mainHandler.post {
+            val listener = phoneStateListener ?: return@post
+            phoneStateListener = null
+            try {
+                telephonyManager?.listen(listener, PhoneStateListener.LISTEN_NONE)
+            } catch (_: Exception) {
+            }
         }
     }
 
@@ -91,7 +113,7 @@ class OpusAudioRecorder(
                 if (len > 0 && !callStop) {
                     var sum = 0
                     try {
-                        val newSamplesCount = samplesCount + len / 2
+                        val newSamplesCount = samplesCount + len
                         val currPart =
                             (samplesCount / newSamplesCount.toDouble() * recordSamples.size).toInt()
                         val newPart = recordSamples.size - currPart
@@ -106,7 +128,7 @@ class OpusAudioRecorder(
                         }
                         var currNum = currPart
                         var nextNum = 0f
-                        sampleStep = len / 2f / newPart
+                        sampleStep = len.toFloat() / newPart
                         for (i in 0 until len) {
                             val peak = shortArray[i]
                             if (peak > 2500) {
@@ -160,6 +182,7 @@ class OpusAudioRecorder(
         recordingAudioFile.createNewFile()
         try {
             if (startRecord(recordingAudioFile.absolutePath) != 0) {
+                unregisterPhoneStateListener()
                 return@Runnable
             }
 
@@ -172,6 +195,7 @@ class OpusAudioRecorder(
             )
 
             if (audioRecord == null || audioRecord!!.state != AudioRecord.STATE_INITIALIZED) {
+                unregisterPhoneStateListener()
                 return@Runnable
             }
             callStop = false
@@ -182,6 +206,7 @@ class OpusAudioRecorder(
             if (audioRecord != null && audioRecord!!.recordingState != AudioRecord.RECORDSTATE_RECORDING) {
                 audioRecord?.release()
                 audioRecord = null
+                unregisterPhoneStateListener()
                 return@Runnable
             }
             state = STATE_RECORDING
@@ -194,6 +219,7 @@ class OpusAudioRecorder(
                 audioRecord = null
             } catch (ignore: Exception) {
             }
+            unregisterPhoneStateListener()
             return@Runnable
         }
 
@@ -201,6 +227,7 @@ class OpusAudioRecorder(
     }
 
     fun startRecording() {
+        registerPhoneStateListener()
         recordQueue.postRunnable(recodeStartRunnable)
     }
 
@@ -208,54 +235,53 @@ class OpusAudioRecorder(
         recordQueue.cancelRunnable(recodeStartRunnable)
         recordQueue.postRunnable(
             {
-                audioRecord?.let { audioRecord ->
-                    try {
-                        sendAfterDone = endStatus == AudioEndStatus.SEND
-                        if (audioRecord.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
-                            audioRecord.stop()
-                        }
-                    } catch (e: Exception) {
-                        recordingAudioFile.delete()
-                    }
-                    stopRecordingInternal(endStatus)
+                val audioRecord = audioRecord
+                if (audioRecord == null) {
+                    unregisterPhoneStateListener()
+                    return@postRunnable
                 }
+                try {
+                    sendAfterDone = endStatus == AudioEndStatus.SEND
+                    if (audioRecord.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
+                        audioRecord.stop()
+                    }
+                } catch (e: Exception) {
+                    recordingAudioFile.delete()
+                }
+                stopRecordingInternal(endStatus)
             }
         )
     }
 
     private fun stopRecordingInternal(endStatus: AudioEndStatus) {
         callStop = true
-        // if not send no need to stopping record after all encoding runnable run completed.
-        if (endStatus != AudioEndStatus.CANCEL) {
-            fileEncodingQueue.postRunnable(
-                {
-                    stopRecord()
+        // stopRecord() must run on fileEncodingQueue after all pending writeFrame
+        // runnables, otherwise the native encoder is leaked and the file stays open.
+        fileEncodingQueue.postRunnable(
+            {
+                stopRecord()
+                if (endStatus == AudioEndStatus.CANCEL) {
+                    recordingAudioFile.delete()
+                } else {
                     val duration = recordTimeCount
                     val waveForm = getWaveform2(recordSamples, recordSamples.size)
-                    Handler(Looper.getMainLooper()).post {
-                        if (endStatus == AudioEndStatus.SEND) {
-                            callback?.sendAudio(
-                                recordingAudioFile,
-                                duration,
-                                waveForm
-                            )
-                        } else if (endStatus == AudioEndStatus.PREVIEW) {
-                            callback?.sendAudio(
-                                recordingAudioFile,
-                                duration,
-                                waveForm
-                            )
-                        }
+                    mainHandler.post {
+                        callback?.sendAudio(
+                            recordingAudioFile,
+                            duration,
+                            waveForm
+                        )
                     }
                 }
-            )
-        }
+            }
+        )
         state = STATE_IDLE
         try {
             audioRecord?.release()
             audioRecord = null
         } catch (ignore: Exception) {
         }
+        unregisterPhoneStateListener()
     }
 
     private external fun startRecord(path: String): Int
