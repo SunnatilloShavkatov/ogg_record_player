@@ -1,4 +1,10 @@
+## 1.4.1
+
+### Fixed
+- **iOS (example)**: Fixed `pod install` error by removing the non-existent `RunnerTests` target from the Podfile.
+
 ## 1.4.0
+
 
 ### Changed
 - **iOS**: Migrated from CocoaPods to Swift Package Manager (SPM).
