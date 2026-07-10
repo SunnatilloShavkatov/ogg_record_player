@@ -1,4 +1,4 @@
-package one.mixin.oggOpusPlayer
+package uz.plugin.ogg_opus_player
 
 import android.content.Context
 import android.content.pm.PackageManager

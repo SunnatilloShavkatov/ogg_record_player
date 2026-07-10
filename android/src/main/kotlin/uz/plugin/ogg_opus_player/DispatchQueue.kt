@@ -1,4 +1,4 @@
-package one.mixin.oggOpusPlayer
+package uz.plugin.ogg_opus_player
 
 import android.annotation.SuppressLint
 import android.os.Handler

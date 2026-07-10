@@ -1,9 +1,10 @@
 plugins {
     id("com.android.library")
+    id("org.jetbrains.kotlin.android")
 }
 
-group = "one.mixin.oggOpusPlayer"
-version = "1.4.1"
+group = "uz.plugin.ogg_opus_player"
+version = "1.4.2"
 
 buildscript {
     repositories {
@@ -23,7 +24,7 @@ allprojects {
 }
 
 android {
-    namespace = "one.mixin.oggOpusPlayer"
+    namespace = "uz.plugin.ogg_opus_player"
     compileSdk = 36
 
     defaultConfig {

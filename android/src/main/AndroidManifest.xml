@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="one.mixin.oggOpusPlayer">
+    package="uz.plugin.ogg_opus_player">
 
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 

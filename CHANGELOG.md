@@ -1,3 +1,8 @@
+## 1.4.2
+
+### Changed
+- Package renamed from `one.mixin.oggOpusPlayer` to `uz.plugin.ogg_opus_player`.
+
 ## 1.4.1
 
 ### Fixed

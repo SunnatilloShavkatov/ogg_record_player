@@ -16,7 +16,7 @@ static inline void set_bits(uint8_t *bytes, int32_t bitOffset, int32_t value) {
     *((int32_t *) bytes) |= (value << bitOffset);
 }
 
-JNIEXPORT jint JNICALL Java_one_mixin_oggOpusPlayer_OpusAudioRecorder_startRecord(JNIEnv *env, jclass clazz, jstring path) {
+JNIEXPORT jint JNICALL Java_uz_plugin_ogg_1opus_1player_OpusAudioRecorder_startRecord(JNIEnv *env, jclass clazz, jstring path) {
     const char *pathStr = (*env)->GetStringUTFChars(env, path, 0);
     if (!pathStr) {
         LOGE("Error path");
@@ -39,7 +39,7 @@ JNIEXPORT jint JNICALL Java_one_mixin_oggOpusPlayer_OpusAudioRecorder_startRecor
     return OPE_OK;
 }
 
-JNIEXPORT jint JNICALL Java_one_mixin_oggOpusPlayer_OpusAudioRecorder_writeFrame(JNIEnv *env, jclass clazz, jshortArray frame, jint len) {
+JNIEXPORT jint JNICALL Java_uz_plugin_ogg_1opus_1player_OpusAudioRecorder_writeFrame(JNIEnv *env, jclass clazz, jshortArray frame, jint len) {
     if (enc == NULL) {
         LOGE("Encoder is NULL in writeFrame, aborting write");
         return OPE_BAD_ARG;
@@ -58,7 +58,7 @@ JNIEXPORT jint JNICALL Java_one_mixin_oggOpusPlayer_OpusAudioRecorder_writeFrame
     return result;
 }
 
-JNIEXPORT void JNICALL Java_one_mixin_oggOpusPlayer_OpusAudioRecorder_stopRecord(JNIEnv *env, jclass clazz) {
+JNIEXPORT void JNICALL Java_uz_plugin_ogg_1opus_1player_OpusAudioRecorder_stopRecord(JNIEnv *env, jclass clazz) {
     if (enc != NULL) {
         ope_encoder_drain(enc);
         ope_encoder_destroy(enc);
@@ -71,7 +71,7 @@ JNIEXPORT void JNICALL Java_one_mixin_oggOpusPlayer_OpusAudioRecorder_stopRecord
     LOGI("ope encoder destroy");
 }
 
-JNIEXPORT jbyteArray JNICALL Java_one_mixin_oggOpusPlayer_OpusAudioRecorder_getWaveform2(JNIEnv *env, jclass clazz, jshortArray array, jint length) {
+JNIEXPORT jbyteArray JNICALL Java_uz_plugin_ogg_1opus_1player_OpusAudioRecorder_getWaveform2(JNIEnv *env, jclass clazz, jshortArray array, jint length) {
     jshort *sampleBuffer = (*env)->GetShortArrayElements(env, array, 0);
     const int32_t resultSamples = 100;
     uint16_t *samples = malloc(100 * 2);
