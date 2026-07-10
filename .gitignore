@@ -54,3 +54,4 @@ app.*.map.json
 example/ios/Podfile.lock
 /example/android/.kotlin/sessions/
 /example/android/build/reports/problems/
+/.vscode/

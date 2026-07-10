@@ -46,3 +46,4 @@ app.*.map.json
 /android/src/main/cpp/opus/lib/x86/
 /example/android/.kotlin/sessions/
 /example/android/build/reports/problems/
+/.vscode/
