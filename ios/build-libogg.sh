@@ -25,11 +25,9 @@
 # Forked from: https://github.com/watson-developer-cloud/swift-sdk/blob/master/Scripts/build-libogg.sh
 
 ###########################################################################
-#  Choose your libogg version and your currently-installed iOS SDK version:
-#  xcodebuild -showsdks to check currently-installed iOS SDK.
+#  Choose your libogg version. The iOS SDK version and the minimum deployment
+#  target are resolved in function.sh.
 VERSION="1.3.5"
-SDKVERSION="16.2"
-MINIOSVERSION="10.0"
 
 source function.sh
 

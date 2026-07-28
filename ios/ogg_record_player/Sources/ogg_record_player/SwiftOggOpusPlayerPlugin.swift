@@ -66,7 +66,12 @@ public class SwiftOggOpusPlayerPlugin: NSObject, FlutterPlugin {
       }
       result(nil)
     case "getDuration":
-      result(nil)
+      // Seconds, matching the Android implementation.
+      if let playerId = call.arguments as? Int, let player = playerDictionary[playerId] {
+        result(Int(player.duration))
+      } else {
+        result(nil)
+      }
     case "setPlaybackSpeed":
       if let args = call.arguments as? [String: Any],
          let playerId = args["playerId"] as? Int,

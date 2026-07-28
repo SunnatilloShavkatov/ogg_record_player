@@ -32,6 +32,11 @@ final class OggOpusPlayer {
     }
   }
 
+  /// Duration of the file, in seconds.
+  var duration: Float64 {
+    reader.duration
+  }
+
   var playRate: Float = 1.0 {
     didSet {
       assert(Queue.main.isCurrent)

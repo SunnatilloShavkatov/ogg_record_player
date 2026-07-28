@@ -30,6 +30,8 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
+# Scratch dir for ios/build-*.sh (downloaded sources + intermediate objects)
+/ios/build/
 
 # Symbolication related
 app.*.symbols

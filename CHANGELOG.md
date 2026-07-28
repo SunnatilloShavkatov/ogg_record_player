@@ -1,3 +1,18 @@
+## 1.5.0
+
+### Added
+- **iOS**: Swift Package Manager support (`ios/ogg_record_player/Package.swift`); CocoaPods integration kept working.
+
+### Changed
+- **iOS**: Removed duplicate `ios/Frameworks` and stale `ios/Headers`; xcframeworks now live only in `ios/ogg_record_player/Frameworks` (build scripts output there).
+- **iOS**: Rebuilt the vendored xcframeworks with libopus 1.5.2 (was 1.3.1) and a 15.0 minimum deployment target.
+- **iOS (example)**: Deintegrated CocoaPods from `example/ios` (removed `Podfile`); the example app now builds via Swift Package Manager only, which is what Flutter recommends when every plugin supports SwiftPM. The `ogg_record_player.podspec` itself still ships and is validated with `pod lib lint` — CocoaPods consumers are unaffected.
+
+### Fixed
+- **iOS**: `getDuration` is implemented instead of always returning `null`; it reports the file duration in seconds via `op_pcm_total`, matching Android.
+- **iOS**: `build-lib*.sh` no longer hardcode the iOS SDK version (resolved via `xcrun`) and build arm64 with `--host=aarch64-apple-darwin`, which fixes the ARMv7 GNU assembly build failure in libopus.
+- **iOS**: Replaced the deprecated `AVAudioSession.CategoryOptions.allowBluetooth` with `allowBluetoothHFP` on Swift 6.2+ toolchains.
+
 ## 1.4.3
 
 ### Fixed

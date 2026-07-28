@@ -1,8 +1,6 @@
-#  Choose your libopusfile version and your currently-installed iOS SDK version:
-#  xcodebuild -showsdks to check currently-installed iOS SDK.
+#  Choose your libopusfile version. The iOS SDK version and the minimum deployment
+#  target are resolved in function.sh.
 VERSION="0.12"
-SDKVERSION="16.2"
-MINIOSVERSION="10.0"
 
 source function.sh
 

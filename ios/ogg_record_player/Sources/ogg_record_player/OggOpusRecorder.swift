@@ -115,12 +115,17 @@ final class OggOpusRecorder {
       #if os(iOS)
         do {
           try AudioSession.shared.activate(client: self) { session in
+            // `allowBluetooth` was renamed to `allowBluetoothHFP` in the iOS 26 SDK
+            // (Swift 6.2 toolchain). Keep the old spelling for older toolchains.
+            #if compiler(>=6.2)
+              let options: AVAudioSession.CategoryOptions = [.allowBluetoothHFP]
+            #else
+              let options: AVAudioSession.CategoryOptions = [.allowBluetooth]
+            #endif
             try session.setCategory(.playAndRecord,
                                     mode: .default,
-                                    options: [.allowBluetooth])
-            if #available(iOS 13.0, *) {
-              try session.setAllowHapticsAndSystemSoundsDuringRecording(true)
-            }
+                                    options: options)
+            try session.setAllowHapticsAndSystemSoundsDuringRecording(true)
             try session.setPreferredIOBufferDuration(0.005)
           }
         } catch {

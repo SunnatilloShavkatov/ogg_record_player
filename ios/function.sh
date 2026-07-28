@@ -15,11 +15,19 @@ fi
 DEVELOPER=$(xcode-select -print-path)
 #DEVELOPER="/Applications/Xcode.app/Contents/Developer"
 
+# Minimum deployment target. Must match `s.platform = :ios, 'x'` in the podspec
+# and `platforms: [.iOS("x")]` in Package.swift.
+MINIOSVERSION="${MINIOSVERSION:-15.0}"
+
+# Resolved from the installed Xcode instead of hardcoded, so the scripts keep
+# working across Xcode upgrades.
+SDKVERSION=$(xcrun --sdk iphoneos --show-sdk-version)
+
 cd "$(dirname \"$0\")"
 REPOROOT=$(pwd)
 
 # Where we'll end up storing things in the end
-OUTPUTDIR="${REPOROOT}"
+OUTPUTDIR="${REPOROOT}/ogg_record_player"
 mkdir -p ${OUTPUTDIR}/Frameworks
 
 BUILDDIR="${REPOROOT}/build"
@@ -37,15 +45,21 @@ function build_library() {
   ARCH=$1
   PLATFORM=$2
 
-  EXTRA_CFLAGS="-arch ${ARCH} -target ${arch}-apple-ios${MINIOSVERSION}"
+  EXTRA_CFLAGS="-arch ${ARCH} -target ${ARCH}-apple-ios${MINIOSVERSION}"
   if [ "${PLATFORM}" == "iPhoneSimulator" ]; then
     EXTRA_CFLAGS="${EXTRA_CFLAGS}-simulator"
+    SDKNAME="iphonesimulator"
+  else
+    SDKNAME="iphoneos"
   fi
+  SYSROOT=$(xcrun --sdk "${SDKNAME}" --show-sdk-path)
 
   if [ "${ARCH}" == "i386" ] || [ "${ARCH}" == "x86_64" ]; then
     EXTRA_CONFIG="--host=x86_64-apple-darwin"
   else
-    EXTRA_CONFIG="--host=arm-apple-darwin"
+    # aarch64, not arm: with `arm-apple-darwin` libopus's configure assumes
+    # ARMv7 and compiles the GNU-syntax .S files, which clang rejects.
+    EXTRA_CONFIG="--host=aarch64-apple-darwin"
   fi
 
   local external_ldflags=""
@@ -64,7 +78,7 @@ function build_library() {
   ./configure --enable-float-approx --disable-shared --enable-static --with-pic --disable-extra-programs --disable-doc ${EXTRA_CONFIG} \
     --prefix="${INTERDIR}/${PLATFORM}${SDKVERSION}-${ARCH}.sdk" \
     LDFLAGS="$LDFLAGS ${OPT_LDFLAGS} -fPIE -miphoneos-version-min=${MINIOSVERSION} ${external_ldflags}" \
-    CFLAGS="$CFLAGS ${EXTRA_CFLAGS} ${OPT_CFLAGS} -fPIE -miphoneos-version-min=${MINIOSVERSION} -I${OUTPUTDIR}/include -isysroot ${DEVELOPER}/Platforms/${PLATFORM}.platform/Developer/SDKs/${PLATFORM}${SDKVERSION}.sdk" \
+    CFLAGS="$CFLAGS ${EXTRA_CFLAGS} ${OPT_CFLAGS} -fPIE -miphoneos-version-min=${MINIOSVERSION} -I${OUTPUTDIR}/include -isysroot ${SYSROOT}" \
     ${OPTION_CONFIG}
 
   # Build the application and install it to the fake SDK intermediary dir
@@ -145,6 +159,8 @@ function collect_build_library() {
   collect_build_simulator_library $1
 
   local lib_dir="${OUTPUTDIR}/Frameworks/lib$1.xcframework"
+  # Remove first: `cp -r src dst` nests into dst/Headers when dst already exists.
+  rm -rf "${lib_dir}/ios-arm64_x86_64-simulator/Headers"
   cp -r "${lib_dir}/ios-arm64/Headers" "${lib_dir}/ios-arm64_x86_64-simulator/Headers"
 
   generate_xc_framework_info_plist $1

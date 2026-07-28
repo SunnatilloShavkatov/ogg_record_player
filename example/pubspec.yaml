@@ -18,6 +18,8 @@ dependencies:
 
 dev_dependencies:
   analysis_lints: ^1.0.9
+  integration_test:
+    sdk: flutter
   flutter_test:
     sdk: flutter
 
