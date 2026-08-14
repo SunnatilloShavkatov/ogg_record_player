@@ -99,7 +99,7 @@ Future<dynamic> _handleMethodCall(MethodCall call) async {
 }
 
 final class OggOpusPlayerPluginImpl extends OggOpusPlayer {
-  OggOpusPlayerPluginImpl(this._path) : super.create() {
+  new(this._path) : super.create() {
     _initChannelIfNeeded();
     assert(() {
       if (_path.isEmpty) {
@@ -224,7 +224,7 @@ final class OggOpusPlayerPluginImpl extends OggOpusPlayer {
 }
 
 final class OggOpusRecorderPluginImpl extends OggOpusRecorder {
-  OggOpusRecorderPluginImpl(this._path) : super.create() {
+  new(this._path) : super.create() {
     _initChannelIfNeeded();
     scheduleMicrotask(() async {
       if (_disposed) {

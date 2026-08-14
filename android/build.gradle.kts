@@ -1,10 +1,9 @@
 plugins {
     id("com.android.library")
-    id("org.jetbrains.kotlin.android")
 }
 
 group = "uz.plugin.ogg_opus_player"
-version = "1.4.3"
+version = "1.6.0"
 
 buildscript {
     repositories {
@@ -12,7 +11,7 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath("com.android.tools.build:gradle:8.13.2")
+        classpath("com.android.tools.build:gradle:9.1.0")
     }
 }
 
@@ -36,12 +35,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
     }
 
-    kotlin {
-        compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
-        }
-    }
-
     packaging {
         jniLibs {
             useLegacyPackaging = true
@@ -57,6 +50,12 @@ android {
     }
 }
 
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+    }
+}
 
 dependencies {
     val mediaVersion = "1.10.1"

@@ -6,14 +6,14 @@ import 'package:ogg_record_player/src/player_plugin_impl.dart';
 import 'package:ogg_record_player/src/player_state.dart';
 
 abstract class OggOpusPlayer {
-  factory OggOpusPlayer(String path) {
+  factory(String path) {
     if (Platform.isIOS || Platform.isMacOS || Platform.isAndroid) {
       return OggOpusPlayerPluginImpl(path);
     }
     throw UnsupportedError('Platform not supported');
   }
 
-  OggOpusPlayer.create();
+  new create();
 
   Future<void> pause();
 
@@ -38,14 +38,14 @@ abstract class OggOpusPlayer {
 }
 
 abstract class OggOpusRecorder {
-  factory OggOpusRecorder(String path) {
+  factory(String path) {
     if (Platform.isIOS || Platform.isMacOS || Platform.isAndroid) {
       return OggOpusRecorderPluginImpl(path);
     }
     throw UnsupportedError('Platform not supported');
   }
 
-  OggOpusRecorder.create();
+  new create();
 
   Future<void> start();
 

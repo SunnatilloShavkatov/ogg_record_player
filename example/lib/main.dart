@@ -34,7 +34,7 @@ Future<void> main() async {
 }
 
 class _PlayAssetExample extends StatefulWidget {
-  const _PlayAssetExample({required this.directory});
+  const new({required this.directory});
 
   final String directory;
 
@@ -78,7 +78,7 @@ class _PlayAssetExampleState extends State<_PlayAssetExample> {
 }
 
 class _OpusOggPlayerWidget extends StatefulWidget {
-  const _OpusOggPlayerWidget({super.key, required this.path});
+  const new({super.key, required this.path});
 
   final String path;
 
@@ -183,7 +183,7 @@ class _OpusOggPlayerWidgetState extends State<_OpusOggPlayerWidget> {
 }
 
 class _RecorderExample extends StatefulWidget {
-  const _RecorderExample({required this.dir});
+  const new({required this.dir});
 
   final String dir;
 

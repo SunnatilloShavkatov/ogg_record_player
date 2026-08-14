@@ -1,3 +1,8 @@
+## 1.6.0
+
+### Changed
+- **BREAKING (Android)**: Migrated to Flutter's built-in Kotlin. The plugin no longer applies the Kotlin Gradle Plugin (`org.jetbrains.kotlin.android`), which removes the "plugins that apply Kotlin Gradle Plugin (KGP)" build warning. Consuming apps must set `android.builtInKotlin=true` in `android/gradle.properties`; otherwise the plugin's Kotlin sources are not compiled. Requires AGP 8.13+ (AGP 9+ recommended).
+
 ## 1.5.0
 
 ### Added
