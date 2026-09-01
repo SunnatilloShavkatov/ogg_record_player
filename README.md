@@ -7,6 +7,7 @@ a ogg opus file player for flutter.
 | platform |       | required os version |
 |----------|-------|---------------------|
 | iOS      | ✅     | 15.0                |
+| macOS    | ✅     | 10.15               |
 | Android  | ✅     | minSdk 24           |
 
 ## Getting Started

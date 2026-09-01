@@ -30,7 +30,8 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
-# Scratch dir for ios/build-*.sh (downloaded sources + intermediate objects)
+# Scratch dir for darwin/build-*.sh (downloaded sources + intermediate objects)
+/darwin/build/
 /ios/build/
 
 # Symbolication related

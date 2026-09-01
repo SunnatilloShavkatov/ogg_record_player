@@ -1,4 +1,11 @@
-## 1.6.0
+## 2.0.0
+
+### Added
+- **macOS**: Added full macOS playback and recording support (`OggOpusPlayer` and `OggOpusRecorder`).
+- **macOS**: Configured AudioUnit (`HALOutput`) to capture audio from the system default input device and encode to Opus at 48 kHz.
+- **Darwin / SPM**: Migrated from `ios/` to a unified `darwin/` directory (`sharedDarwinSource: true`), enabling Swift Package Manager (SPM) and CocoaPods support for both iOS and macOS from a single package configuration.
+- **Darwin**: Rebuilt universal multi-platform xcframeworks (`libogg`, `libopus`, `libopusenc`, `libopusfile`) including iOS (device + simulator) and macOS (`arm64` + `x86_64`) slices.
+- **Example**: Added macOS platform runner with audio input entitlements to `example/`.
 
 ### Changed
 - **BREAKING (Android)**: Migrated to Flutter's built-in Kotlin. The plugin no longer applies the Kotlin Gradle Plugin (`org.jetbrains.kotlin.android`), which removes the "plugins that apply Kotlin Gradle Plugin (KGP)" build warning. Consuming apps must set `android.builtInKotlin=true` in `android/gradle.properties`; otherwise the plugin's Kotlin sources are not compiled. Requires AGP 8.13+ (AGP 9+ recommended).

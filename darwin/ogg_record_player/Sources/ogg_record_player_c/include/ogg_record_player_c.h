@@ -1,0 +1,8 @@
+#include "opus_types.h"
+#include "opus_defines.h"
+#include "opus.h"
+#include "opus_multistream.h"
+#include "opus_projection.h"
+#include "opusenc.h"
+#include "opusfile_wrapper.h"
+#include "opusenc_set_bitrate.h"
