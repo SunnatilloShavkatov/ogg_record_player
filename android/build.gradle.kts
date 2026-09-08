@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "uz.plugin.ogg_opus_player"
-version = "2.0.0"
+version = "2.0.1"
 
 buildscript {
     repositories {

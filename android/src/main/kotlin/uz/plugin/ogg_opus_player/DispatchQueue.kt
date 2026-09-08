@@ -37,8 +37,11 @@ class DispatchQueue(threadName: String) : Thread() {
         }
     }
 
-    @JvmOverloads
-    fun postRunnable(runnable: Runnable, delay: Long = 0) {
+    fun postRunnable(runnable: Runnable) {
+        postRunnable(runnable, 0L)
+    }
+
+    fun postRunnable(runnable: Runnable, delay: Long) {
         try {
             syncLatch.await()
             if (delay <= 0) {
@@ -55,6 +58,14 @@ class DispatchQueue(threadName: String) : Thread() {
         try {
             syncLatch.await()
             handler!!.removeCallbacksAndMessages(null)
+        } catch (_: Exception) {
+        }
+    }
+
+    fun quit() {
+        try {
+            syncLatch.await()
+            handler?.looper?.quitSafely()
         } catch (_: Exception) {
         }
     }

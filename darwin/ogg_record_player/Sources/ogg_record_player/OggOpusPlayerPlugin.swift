@@ -12,7 +12,7 @@ private var playerDictionary: [Int: OggOpusPlayer] = [:]
 
 private var recorderDictionary: [Int: OggOpusRecorder] = [:]
 
-public class SwiftOggOpusPlayerPlugin: NSObject, FlutterPlugin {
+public class OggOpusPlayerPlugin: NSObject, FlutterPlugin {
   public static func register(with registrar: FlutterPluginRegistrar) {
     #if os(iOS)
     let messenger = registrar.messenger()
@@ -20,7 +20,7 @@ public class SwiftOggOpusPlayerPlugin: NSObject, FlutterPlugin {
     let messenger = registrar.messenger
     #endif
     let channel = FlutterMethodChannel(name: "ogg_record_player", binaryMessenger: messenger)
-    let instance = SwiftOggOpusPlayerPlugin(channel: channel)
+    let instance = OggOpusPlayerPlugin(channel: channel)
     registrar.addMethodCallDelegate(instance, channel: channel)
   }
 

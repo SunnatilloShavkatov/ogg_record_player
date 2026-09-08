@@ -1,3 +1,11 @@
+## 2.0.1
+
+### Fixed
+- **Android**: Fixed native crash in `silk_resampler_private_down_FIR` by replacing process-wide global encoder state in C with thread-safe, per-instance native handles (`OpusRecorderContext` with mutex synchronization).
+- **Android**: Fixed use-after-free and race conditions occurring during rapid start/stop/cancel recording cycles.
+- **Android**: Prevented thread leaks by terminating background `Looper` worker threads (`recordQueue` and `fileEncodingQueue`) upon recorder disposal.
+- **Android**: Fixed potential unaligned memory writes in waveform packing and guarded against `Int16.min` integer overflow in `getWaveform2`.
+
 ## 2.0.0
 
 ### Added

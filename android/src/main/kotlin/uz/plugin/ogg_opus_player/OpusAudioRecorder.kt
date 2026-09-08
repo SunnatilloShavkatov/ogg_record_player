@@ -28,6 +28,7 @@ class OpusAudioRecorder(
 
         private const val MAX_RECORD_DURATION = 60000 * 3
 
+        @Deprecated("Use instance state instead")
         var state: Int = STATE_NOT_INIT
 
         init {
@@ -37,33 +38,80 @@ class OpusAudioRecorder(
                 e.printStackTrace()
             }
         }
-
     }
 
     private var audioRecord: AudioRecord? = null
 
-    private var recordBufferSize: Int = AudioRecord.getMinBufferSize(
-        SAMPLE_RATE,
-        AudioFormat.CHANNEL_IN_MONO,
-        AudioFormat.ENCODING_PCM_16BIT
+    private var recordBufferSize: Int = maxOf(
+        AudioRecord.getMinBufferSize(
+            SAMPLE_RATE,
+            AudioFormat.CHANNEL_IN_MONO,
+            AudioFormat.ENCODING_PCM_16BIT
+        ),
+        1024
     )
 
     private val recordSamples = ShortArray(1024)
     private var samplesCount = 0L
     private var recordTimeCount = 0L
     private var sendAfterDone = false
+    @Volatile
     private var callStop = false
+    @Volatile
+    private var isStopping = false
+    @Volatile
+    private var isStopped = false
+    @Volatile
+    private var nativeHandle: Long = 0L
 
+    var instanceState: Int = STATE_IDLE
+        private set(value) {
+            field = value
+            state = value
+        }
 
-    private val recordQueue: DispatchQueue by lazy {
+    private val recordQueueDelegate = lazy {
         DispatchQueue("recordQueue").apply {
             priority = Thread.MAX_PRIORITY
         }
     }
-    private val fileEncodingQueue: DispatchQueue by lazy {
+    private val recordQueue: DispatchQueue by recordQueueDelegate
+
+    private val fileEncodingQueueDelegate = lazy {
         DispatchQueue("fileEncodingQueue").apply {
             priority = Thread.MAX_PRIORITY
         }
+    }
+    private val fileEncodingQueue: DispatchQueue by fileEncodingQueueDelegate
+
+    /**
+     * Stops both worker threads. Only quits queues that were actually started so a
+     * failed start does not spin up the encoding thread just to tear it down.
+     */
+    private fun shutdownQueues() {
+        if (fileEncodingQueueDelegate.isInitialized()) {
+            fileEncodingQueue.quit()
+        }
+        if (recordQueueDelegate.isInitialized()) {
+            recordQueue.quit()
+        }
+    }
+
+    /**
+     * Aborts a start that never reached STATE_RECORDING: marks the recorder dead,
+     * notifies the caller and releases the worker threads so they are not leaked.
+     * Must be called on recordQueue.
+     */
+    private fun failStart() {
+        callStop = true
+        isStopping = true
+        isStopped = true
+        instanceState = STATE_IDLE
+        unregisterPhoneStateListener()
+        mainHandler.post {
+            callback?.onCancel()
+        }
+        shutdownQueues()
     }
     
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -107,6 +155,7 @@ class OpusAudioRecorder(
 
     private val recordRunnable: Runnable by lazy {
         Runnable recordRunnable@{
+            if (callStop || isStopping || isStopped) return@recordRunnable
             audioRecord?.let { audioRecord ->
                 val shortArray = ShortArray(recordBufferSize)
                 val len = audioRecord.read(shortArray, 0, shortArray.size)
@@ -128,7 +177,7 @@ class OpusAudioRecorder(
                         }
                         var currNum = currPart
                         var nextNum = 0f
-                        sampleStep = len.toFloat() / newPart
+                        sampleStep = if (newPart > 0) len.toFloat() / newPart else 0f
                         for (i in 0 until len) {
                             val peak = shortArray[i]
                             if (peak > 2500) {
@@ -147,24 +196,30 @@ class OpusAudioRecorder(
                     fileEncodingQueue.postRunnable(
                         Runnable encodingRunnable@{
                             if (callStop) return@encodingRunnable
+                            val handle = nativeHandle
+                            if (handle != 0L) {
+                                writeFrame(handle, shortArray, len)
+                                recordTimeCount += len / 16
 
-                            writeFrame(shortArray, len)
-                            recordTimeCount += len / 16
-
-                            if (recordTimeCount >= MAX_RECORD_DURATION) {
-                                stopRecording(AudioEndStatus.SEND)
+                                if (recordTimeCount >= MAX_RECORD_DURATION) {
+                                    stopRecording(AudioEndStatus.SEND)
+                                }
                             }
                         }
                     )
-                    recordQueue.postRunnable(recordRunnable)
+                    if (!callStop && !isStopping && !isStopped) {
+                        recordQueue.postRunnable(recordRunnable)
+                    }
                 } else {
-                    stopRecordingInternal(
-                        if (sendAfterDone) {
-                            AudioEndStatus.SEND
-                        } else {
-                            AudioEndStatus.CANCEL
-                        }
-                    )
+                    if (!callStop && !isStopping && !isStopped) {
+                        stopRecording(
+                            if (sendAfterDone) {
+                                AudioEndStatus.SEND
+                            } else {
+                                AudioEndStatus.CANCEL
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -172,7 +227,7 @@ class OpusAudioRecorder(
 
     @SuppressLint("MissingPermission")
     private val recodeStartRunnable = Runnable {
-        if (audioRecord != null) {
+        if (audioRecord != null || isStopping || isStopped) {
             return@Runnable
         }
 
@@ -181,10 +236,13 @@ class OpusAudioRecorder(
         }
         recordingAudioFile.createNewFile()
         try {
-            if (startRecord(recordingAudioFile.absolutePath) != 0) {
-                unregisterPhoneStateListener()
+            val handle = startRecord(recordingAudioFile.absolutePath)
+            if (handle == 0L) {
+                recordingAudioFile.delete()
+                failStart()
                 return@Runnable
             }
+            nativeHandle = handle
 
             audioRecord = AudioRecord(
                 MediaRecorder.AudioSource.MIC,
@@ -195,7 +253,13 @@ class OpusAudioRecorder(
             )
 
             if (audioRecord == null || audioRecord!!.state != AudioRecord.STATE_INITIALIZED) {
-                unregisterPhoneStateListener()
+                audioRecord?.release()
+                audioRecord = null
+                val h = nativeHandle
+                nativeHandle = 0L
+                if (h != 0L) stopRecord(h)
+                recordingAudioFile.delete()
+                failStart()
                 return@Runnable
             }
             callStop = false
@@ -204,22 +268,27 @@ class OpusAudioRecorder(
             audioRecord?.startRecording()
 
             if (audioRecord != null && audioRecord!!.recordingState != AudioRecord.RECORDSTATE_RECORDING) {
+                val h = nativeHandle
+                nativeHandle = 0L
+                if (h != 0L) stopRecord(h)
                 audioRecord?.release()
                 audioRecord = null
-                unregisterPhoneStateListener()
+                recordingAudioFile.delete()
+                failStart()
                 return@Runnable
             }
-            state = STATE_RECORDING
+            instanceState = STATE_RECORDING
         } catch (e: Exception) {
             recordingAudioFile.delete()
             try {
-                stopRecord()
-                state = STATE_IDLE
+                val h = nativeHandle
+                nativeHandle = 0L
+                if (h != 0L) stopRecord(h)
                 audioRecord?.release()
                 audioRecord = null
             } catch (ignore: Exception) {
             }
-            unregisterPhoneStateListener()
+            failStart()
             return@Runnable
         }
 
@@ -232,61 +301,71 @@ class OpusAudioRecorder(
     }
 
     fun stopRecording(endStatus: AudioEndStatus) {
+        if (isStopping) return
+        isStopping = true
+        callStop = true
+
         recordQueue.cancelRunnable(recodeStartRunnable)
-        recordQueue.postRunnable(
-            {
-                val audioRecord = audioRecord
-                if (audioRecord == null) {
-                    unregisterPhoneStateListener()
-                    return@postRunnable
-                }
-                try {
-                    sendAfterDone = endStatus == AudioEndStatus.SEND
-                    if (audioRecord.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
-                        audioRecord.stop()
-                    }
-                } catch (e: Exception) {
-                    recordingAudioFile.delete()
-                }
+        recordQueue.postRunnable(Runnable {
+            val audioRecord = audioRecord
+            if (audioRecord == null) {
                 stopRecordingInternal(endStatus)
+                return@Runnable
             }
-        )
+            try {
+                sendAfterDone = endStatus == AudioEndStatus.SEND
+                if (audioRecord.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
+                    audioRecord.stop()
+                }
+            } catch (e: Exception) {
+                recordingAudioFile.delete()
+            }
+            stopRecordingInternal(endStatus)
+        })
     }
 
     private fun stopRecordingInternal(endStatus: AudioEndStatus) {
+        if (isStopped) return
+        isStopped = true
         callStop = true
-        // stopRecord() must run on fileEncodingQueue after all pending writeFrame
-        // runnables, otherwise the native encoder is leaked and the file stays open.
-        fileEncodingQueue.postRunnable(
-            {
-                stopRecord()
-                if (endStatus == AudioEndStatus.CANCEL) {
-                    recordingAudioFile.delete()
-                } else {
-                    val duration = recordTimeCount
-                    val waveForm = getWaveform2(recordSamples, recordSamples.size)
-                    mainHandler.post {
-                        callback?.sendAudio(
-                            recordingAudioFile,
-                            duration,
-                            waveForm
-                        )
-                    }
-                }
-            }
-        )
-        state = STATE_IDLE
+
         try {
             audioRecord?.release()
             audioRecord = null
         } catch (ignore: Exception) {
         }
         unregisterPhoneStateListener()
+        instanceState = STATE_IDLE
+
+        // stopRecord() must run on fileEncodingQueue after all pending writeFrame
+        // runnables, otherwise the native encoder is leaked and the file stays open.
+        fileEncodingQueue.postRunnable(Runnable {
+            val handle = nativeHandle
+            nativeHandle = 0L
+            if (handle != 0L) {
+                stopRecord(handle)
+            }
+            if (endStatus == AudioEndStatus.CANCEL) {
+                recordingAudioFile.delete()
+            } else {
+                val duration = recordTimeCount
+                val waveForm = getWaveform2(recordSamples, recordSamples.size)
+                mainHandler.post {
+                    callback?.sendAudio(
+                        recordingAudioFile,
+                        duration,
+                        waveForm
+                    )
+                }
+            }
+            // Shut down worker threads to avoid thread leaks
+            shutdownQueues()
+        })
     }
 
-    private external fun startRecord(path: String): Int
-    private external fun writeFrame(frame: ShortArray, len: Int): Int
-    private external fun stopRecord()
+    private external fun startRecord(path: String): Long
+    private external fun writeFrame(handle: Long, frame: ShortArray, len: Int): Int
+    private external fun stopRecord(handle: Long)
     private external fun getWaveform2(arr: ShortArray, len: Int): ByteArray
 
     interface Callback {
