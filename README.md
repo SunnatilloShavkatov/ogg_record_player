@@ -1,68 +1,137 @@
 # ogg_record_player
 
-[![Pub](https://img.shields.io/pub/v/ogg_record_player.svg)](https://pub.dev/packages/ogg_record_player)
+A Flutter plugin for **playing** and **recording** Ogg Opus audio on Android, iOS and macOS.
 
-a ogg opus file player for flutter.
+- `OggOpusPlayer` — play and pause `.ogg` Opus files, with playback-rate control.
+- `OggOpusRecorder` — record the microphone straight into an `.ogg` Opus file, with duration and
+  waveform data for voice-message UIs.
 
-| platform |       | required os version |
-|----------|-------|---------------------|
-| iOS      | ✅     | 15.0                |
-| macOS    | ✅     | 10.15               |
-| Android  | ✅     | minSdk 24           |
+| Platform | Supported | Minimum version |
+|----------|-----------|-----------------|
+| Android  | ✅        | minSdk 26       |
+| iOS      | ✅        | 15.0            |
+| macOS    | ✅        | 10.15           |
 
-## Getting Started
+Other platforms throw `UnsupportedError`.
 
-1. add `ogg_record_player` to your pubspec.yaml
+## Installation
 
-    ```yaml
-      ogg_record_player: $latest_version
-    ```
+```yaml
+dependencies:
+  ogg_record_player:
+    git:
+      url: https://github.com/SunnatilloShavkatov/ogg_record_player.git
+      ref: 2.0.2
+```
 
-2. then you can play your opus ogg file from `OggOpusPlayer`
+## Platform setup
 
-    ```dart
-    import 'package:ogg_record_player/ogg_record_player.dart';
-    
-    void playOggOpusFile() {
-      final player = OggOpusPlayer("file_path");
-    
-      player.play();
-      player.pause();
-    
-      player.dispose();
-    }
-    ```
+### Android
 
-## Linux required
+`RECORD_AUDIO` is declared by the plugin, but it is a runtime permission: **your app must request it
+before calling `OggOpusRecorder.start()`** (for example with `permission_handler`).
+Without it `start()` throws a `PlatformException` with code `PERMISSION_DENIED`.
 
-Need SDL2 library installed on Linux.
+### iOS / macOS
+
+Add `NSMicrophoneUsageDescription` to your `Info.plist`:
+
+```xml
+<key>NSMicrophoneUsageDescription</key>
+<string>This app uses your microphone to record voice messages.</string>
+```
+
+On macOS also enable the microphone in `DebugProfile.entitlements` and `Release.entitlements`:
+
+```xml
+<key>com.apple.security.device.microphone</key>
+<true/>
+<key>com.apple.security.device.audio-input</key>
+<true/>
+```
+
+On iOS, configure the audio session (for example with `audio_session`) with the `playAndRecord`
+category before recording. See [`example/lib/main.dart`](example/lib/main.dart).
+
+## Usage
+
+### Playback
+
+```dart
+import 'package:ogg_record_player/ogg_record_player.dart';
+
+final player = OggOpusPlayer('/path/to/voice.ogg');
+
+player.state.addListener(() {
+  // PlayerState: error, idle, playing, paused, ended
+  print(player.state.value);
+});
+
+await player.play();
+await player.setPlaybackRate(1.5); // 0.5 – 2.0
+await player.pause();
+
+print(player.currentPosition); // seconds
+print(await player.getDuration()); // seconds
+
+await player.dispose();
+```
+
+The file must exist when the player is created (asserted in debug builds).
+
+### Recording
+
+```dart
+final recorder = OggOpusRecorder('/path/to/new_voice.ogg');
+
+try {
+  await recorder.start();
+} on Exception catch (e) {
+  // e.g. PlatformException(PERMISSION_DENIED) when the microphone permission is missing.
+  await recorder.dispose();
+  return;
+}
+
+// ... later
+await recorder.stop(); // completes once the file is finalized
+
+final seconds = await recorder.duration();
+final waveform = await recorder.getWaveformData();
+
+await recorder.dispose();
+```
+
+Notes:
+
+- `stop()` waits for the native side to finish writing; read `duration()` and `getWaveformData()`
+  only after it completes.
+- If `start()` failed, `stop()` returns immediately and `duration()` is `0.0` with an empty waveform.
+  `recorder.startError` holds the reason, so a failed start can be told apart from an empty recording.
+- `dispose()` while a recording is in progress cancels it and deletes the file on Android.
+- Waveform format differs per platform: Android returns 5-bit packed data, iOS/macOS return 100
+  intensity bytes.
+
+## How it works
+
+|             | Playback                       | Recording                                                          |
+|-------------|--------------------------------|--------------------------------------------------------------------|
+| Android     | Media3 ExoPlayer               | `AudioRecord` → JNI → libopusenc (16 kHz mono, 16 kbps, max 3 min) |
+| iOS / macOS | `AudioQueue` + Ogg Opus reader | `AudioUnit` → libopusenc                                           |
+
+Android links prebuilt static `libogg`, `libopus` and `libopusenc` from
+`android/src/main/cpp/opus/lib/<abi>/`. `libopusenc` is built from 0.2.1 with `-DNDEBUG`, because a
+failing internal `assert` in `ope_encoder_drain` would otherwise abort the whole app process.
+Native libraries are linked with 16 KB page alignment.
+
+Apple platforms ship prebuilt xcframeworks and support both CocoaPods and Swift Package Manager.
+
+## Example
 
 ```shell
-sudo apt-get install libsdl2-dev
-sudo apt-get install libopus-dev
+cd example
+flutter run
 ```
 
-## iOS/macOS required
+## License
 
-Record voice need update your app's Info.plist NSMicrophoneUsageDescription key with a string value
-explaining to the user how the app uses this data.
-
-For example:
-
-```
-    <key>NSMicrophoneUsageDescription</key>
-    <string>Example uses your microphone to record voice for test.</string>
-```
-
-for macOS, you also need update your `DebugProfile.entitlements` and `ReleaseProfile.entitlements` with the following:
-
-```
-    <key>com.apple.security.device.microphone</key>
-    <true/>
-    <key>com.apple.security.device.audio-input</key>
-    <true/>
-```
-
-## LICENSE
-
-see LICENSE file
+See [LICENSE](LICENSE).

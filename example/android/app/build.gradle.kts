@@ -6,11 +6,11 @@ plugins {
 android {
     namespace = "com.example.ogg_opus_player_example"
     ndkVersion = "28.2.13676358"
-    compileSdk = 36
+    compileSdk = 37
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     sourceSets["main"].java.srcDirs("src/main/kotlin")
@@ -36,6 +36,6 @@ flutter {
 
 kotlin {
     compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
