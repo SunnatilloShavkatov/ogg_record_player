@@ -47,11 +47,20 @@ abstract class OggOpusRecorder {
 
   new create();
 
+  /// Starts recording. Throws if the platform rejects the request, e.g. a
+  /// `PlatformException` with code `PERMISSION_DENIED` when the microphone
+  /// permission has not been granted.
   Future<void> start();
 
+  /// Stops recording. Returns immediately without a result when [start] failed;
+  /// check [startError] to tell that case apart from an empty recording.
   Future<void> stop();
 
   Future<void> dispose();
+
+  /// The reason [start] failed (the thrown exception or the native failure
+  /// message), or `null` if it has not failed.
+  Object? get startError;
 
   /// get the recorded audio waveform data.
   /// must be called after [stop] is called.

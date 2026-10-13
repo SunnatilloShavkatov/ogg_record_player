@@ -16,9 +16,16 @@ typedef struct OpusRecorderContext {
     OggOpusComments *comments;
     pthread_mutex_t lock;   // serializes encoder calls for this context
     int is_stopped;
+    int write_failed;       // set once ope_encoder_write reports an error
+    int64_t samples_written; // 16 kHz mono samples accepted by the encoder
     int refs;               // guarded by g_registry_lock
     struct OpusRecorderContext *next;
 } OpusRecorderContext;
+
+// The prebuilt libopusenc is compiled with assertions on, and ope_encoder_drain()
+// asserts (abort) when the stream does not close cleanly. Drain only recordings
+// that are long enough and error-free; anything else is destroyed without drain.
+#define MIN_DRAIN_SAMPLES 4000
 
 static pthread_mutex_t g_registry_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t g_registry_cond = PTHREAD_COND_INITIALIZER;
@@ -163,6 +170,11 @@ JNIEXPORT jint JNICALL Java_uz_plugin_ogg_1opus_1player_OpusAudioRecorder_writeF
     }
 
     int result = ope_encoder_write(ctx->enc, sampleBuffer, len);
+    if (result == OPE_OK) {
+        ctx->samples_written += len;
+    } else {
+        ctx->write_failed = 1;
+    }
     (*env)->ReleaseShortArrayElements(env, frame, sampleBuffer, JNI_ABORT);
 
     pthread_mutex_unlock(&ctx->lock);
@@ -203,7 +215,12 @@ JNIEXPORT void JNICALL Java_uz_plugin_ogg_1opus_1player_OpusAudioRecorder_stopRe
     if (!ctx->is_stopped) {
         ctx->is_stopped = 1;
         if (ctx->enc != NULL) {
-            ope_encoder_drain(ctx->enc);
+            if (!ctx->write_failed && ctx->samples_written >= MIN_DRAIN_SAMPLES) {
+                ope_encoder_drain(ctx->enc);
+            } else {
+                LOGE("stopRecord: skipping drain (samples=%lld, write_failed=%d)",
+                     (long long) ctx->samples_written, ctx->write_failed);
+            }
             ope_encoder_destroy(ctx->enc);
             ctx->enc = NULL;
         }

@@ -1,3 +1,12 @@
+## 2.0.2
+
+### Fixed
+- **Android**: Fixed native abort in `ope_encoder_drain` (`assert(enc->streams == NULL)`) by rebuilding the prebuilt `libopusenc.a` (all ABIs) from libopusenc 0.2.1 with `-DNDEBUG`, and by skipping `ope_encoder_drain` for recordings shorter than 0.25 s or after an encoder write error.
+
+### Added
+- `OggOpusRecorder.startError` exposes why `start()` failed (e.g. `PERMISSION_DENIED`), so a failed start can be told apart from an empty recording.
+- Example app now requests the microphone permission on Android and surfaces start failures instead of ignoring them.
+
 ## 2.0.1
 
 ### Fixed

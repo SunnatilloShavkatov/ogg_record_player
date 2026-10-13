@@ -251,6 +251,7 @@ final class OggOpusRecorderPluginImpl extends OggOpusRecorder {
 
   bool _disposed = false;
   bool _startFailed = false;
+  Object? _startError;
 
   double? _duration;
   List<int>? _waveformData;
@@ -267,10 +268,12 @@ final class OggOpusRecorderPluginImpl extends OggOpusRecorder {
     }
     _stopCompleter = Completer<void>();
     _startFailed = false;
+    _startError = null;
     try {
       await _channel.invokeMethod('startRecord', _id);
-    } on Exception {
+    } on Exception catch (e) {
       _startFailed = true;
+      _startError = e;
       _safeCompleteStop();
       rethrow;
     }
@@ -301,6 +304,9 @@ final class OggOpusRecorderPluginImpl extends OggOpusRecorder {
   }
 
   @override
+  Object? get startError => _startError;
+
+  @override
   Future<double> duration() async => _duration ?? 0.0;
 
   @override
@@ -308,6 +314,7 @@ final class OggOpusRecorderPluginImpl extends OggOpusRecorder {
 
   void onStartFailed(String reason) {
     _startFailed = true;
+    _startError = reason;
     _safeCompleteStop();
   }
 

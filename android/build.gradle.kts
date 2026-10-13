@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "uz.plugin.ogg_opus_player"
-version = "2.0.1"
+version = "2.0.2"
 
 buildscript {
     repositories {
@@ -58,7 +58,7 @@ kotlin {
 }
 
 dependencies {
-    val mediaVersion = "1.11.0"
+    val mediaVersion = "1.11.1"
 
     implementation("androidx.media3:media3-exoplayer:$mediaVersion")
     implementation("androidx.media3:media3-common:$mediaVersion")

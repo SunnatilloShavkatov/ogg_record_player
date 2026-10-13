@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:ogg_record_player/ogg_record_player.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 late AudioSession session;
 
@@ -202,6 +203,14 @@ class _RecorderExampleState extends State<_RecorderExample> {
     _recordedPath = p.join(widget.dir, 'test_recorded.ogg');
   }
 
+  void _showError(String message) {
+    debugPrint(message);
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
   @override
   Widget build(BuildContext context) => Row(
     mainAxisSize: MainAxisSize.min,
@@ -210,6 +219,10 @@ class _RecorderExampleState extends State<_RecorderExample> {
       if (_recorder == null)
         IconButton(
           onPressed: () async {
+            if (Platform.isAndroid && !await Permission.microphone.request().isGranted) {
+              _showError('Microphone permission denied');
+              return;
+            }
             final File file = File(_recordedPath);
             if (file.existsSync()) {
               File(_recordedPath).deleteSync();
@@ -223,7 +236,14 @@ class _RecorderExampleState extends State<_RecorderExample> {
               ),
             );
             await session.setActive(true);
-            final OggOpusRecorder recorder = OggOpusRecorder(_recordedPath)..start().ignore();
+            final OggOpusRecorder recorder = OggOpusRecorder(_recordedPath);
+            try {
+              await recorder.start();
+            } on Exception catch (e) {
+              _showError('Recording failed to start: $e');
+              unawaited(recorder.dispose());
+              return;
+            }
             setState(() {
               _recorder = recorder;
             });
@@ -234,7 +254,7 @@ class _RecorderExampleState extends State<_RecorderExample> {
         IconButton(
           onPressed: () async {
             await _recorder?.stop();
-            debugPrint('recording stopped');
+            debugPrint('recording stopped, startError: ${_recorder?.startError}');
             debugPrint('duration: ${await _recorder?.duration()}');
             debugPrint('waveform: ${await _recorder?.getWaveformData()}');
             _recorder?.dispose().ignore();
