@@ -5,7 +5,7 @@ let package = Package(
   name: "ogg_record_player",
   platforms: [
     .iOS("15.0"),
-    .macOS("10.15"),
+    .macOS("11.0"),
   ],
   products: [
     .library(name: "ogg-record-player", targets: ["ogg_record_player"]),

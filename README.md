@@ -10,7 +10,7 @@ A Flutter plugin for **playing** and **recording** Ogg Opus audio on Android, iO
 |----------|-----------|-----------------|
 | Android  | ✅        | minSdk 26       |
 | iOS      | ✅        | 15.0            |
-| macOS    | ✅        | 10.15           |
+| macOS    | ✅        | 11.0            |
 
 Other platforms throw `UnsupportedError`.
 
@@ -21,7 +21,7 @@ dependencies:
   ogg_record_player:
     git:
       url: https://github.com/SunnatilloShavkatov/ogg_record_player.git
-      ref: 2.0.2
+      ref: 2.1.0
 ```
 
 ## Platform setup

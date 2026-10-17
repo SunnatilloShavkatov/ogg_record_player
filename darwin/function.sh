@@ -18,7 +18,7 @@ DEVELOPER=$(xcode-select -print-path)
 # Minimum deployment target. Must match `s.platform = :ios, 'x'` in the podspec
 # and `platforms: [.iOS("x")]` in Package.swift.
 MINIOSVERSION="${MINIOSVERSION:-15.0}"
-MINMACOSVERSION="${MINMACOSVERSION:-10.15}"
+MINMACOSVERSION="${MINMACOSVERSION:-11.0}"
 
 # Resolved from the installed Xcode instead of hardcoded, so the scripts keep
 # working across Xcode upgrades.

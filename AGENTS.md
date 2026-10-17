@@ -27,7 +27,7 @@
 
 ## Critical behavior to preserve
 - Dart player creation is async via `scheduleMicrotask`; state transitions depend on native callbacks (`lib/src/player_plugin_impl.dart`).
-- `currentPosition` is computed from last callback timestamp + playback rate (`SystemClock.uptime`) rather than polling native every frame.
+- `currentPosition` is extrapolated from the last callback's position + playback rate, timed with a Dart `Stopwatch` reset on each `onPlayerStateChanged`, rather than polling native every frame.
 - Recorder `stop()` waits for `onRecorderFinished` / `onRecorderCanceled` (`_stopCompleter`) before data is readable.
 - Waveform shape differs by platform: Android returns packed 5-bit data from C (`getWaveform2`), iOS/macOS returns 100 intensity bytes from Swift.
 - `getDuration` returns duration in seconds matching Android/iOS/macOS.

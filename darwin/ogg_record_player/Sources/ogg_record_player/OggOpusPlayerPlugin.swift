@@ -36,7 +36,6 @@ public class OggOpusPlayerPlugin: NSObject, FlutterPlugin {
       "state": player.status.rawValue,
       "position": player.currentTime,
       "playerId": id,
-      "updateTime": systemUptime(),
       "speed": player.playRate,
     ])
   }
@@ -130,12 +129,6 @@ private var _lastGeneratedId = 0
 private func generatedPlayerId() -> Int {
   _lastGeneratedId += 1
   return _lastGeneratedId
-}
-
-private func systemUptime() -> Int {
-  var spec = timespec()
-  clock_gettime(CLOCK_UPTIME_RAW, &spec)
-  return spec.tv_sec * 1000 + spec.tv_nsec / 1000000
 }
 
 class PluginOggOpusRecorderDelegate: OggOpusRecorderDelegate {

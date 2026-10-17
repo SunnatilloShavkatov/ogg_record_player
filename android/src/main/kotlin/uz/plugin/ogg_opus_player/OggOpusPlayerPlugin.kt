@@ -2,7 +2,6 @@ package uz.plugin.ogg_opus_player
 
 import android.content.Context
 import android.content.pm.PackageManager
-import android.os.SystemClock
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import io.flutter.embedding.engine.plugins.FlutterPlugin
@@ -173,7 +172,6 @@ class OggOpusPlayerPlugin : FlutterPlugin, MethodCallHandler {
             "onPlayerStateChanged", mapOf(
                 "state" to player.state.ordinal,
                 "playerId" to id,
-                "updateTime" to SystemClock.uptimeMillis(),
                 "position" to player.position,
                 "duration" to player.duration,
                 "speed" to player.playbackRate,

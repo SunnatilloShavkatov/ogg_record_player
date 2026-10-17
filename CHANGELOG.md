@@ -1,3 +1,13 @@
+## 2.1.0
+
+### Changed
+- **macOS**: Minimum deployment target raised from 10.15 to 11.0 (podspec, `Package.swift`, and the default for `darwin/build-all.sh`).
+- Removed the `system_clock` dependency (and its transitive `ffi` dependency). `OggOpusPlayer.currentPosition` is now extrapolated with a Dart `Stopwatch` reset on each native state callback, instead of comparing native and Dart uptime clocks over FFI.
+- The native `onPlayerStateChanged` payload no longer includes `updateTime` (Android and iOS/macOS).
+
+### Fixed
+- `state` listeners now read the updated `currentPosition` and `duration`; previously the state was notified before the new position was stored.
+
 ## 2.0.2
 
 ### Fixed

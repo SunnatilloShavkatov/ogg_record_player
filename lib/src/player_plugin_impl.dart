@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:ogg_record_player/src/player.dart';
 import 'package:ogg_record_player/src/player_state.dart';
-import 'package:system_clock/system_clock.dart';
 
 PlayerState _convertFromRawValue(int state) {
   switch (state) {
@@ -52,18 +51,19 @@ Future<dynamic> _handleMethodCall(MethodCall call) async {
       final num position = args['position'];
       final num duration = args['duration'] ?? 1;
       final int playerId = args['playerId'] as int;
-      final int updateTime = args['updateTime'] as int;
       final double? speed = args['speed'] as double?;
       final OggOpusPlayerPluginImpl? player = _players[playerId];
       if (player == null) {
         return;
       }
-      player._playerState.value = _convertFromRawValue(state);
       player
-        .._lastUpdateTimeStamp = updateTime
         .._position = position.toInt()
         .._duration = duration.toInt()
-        .._playbackRate = speed ?? 1.0;
+        .._playbackRate = speed ?? 1.0
+        .._positionStopwatch.reset()
+        .._positionStopwatch.start();
+      // Notify after the fields above so listeners read the fresh position.
+      player._playerState.value = _convertFromRawValue(state);
     case 'onRecorderCanceled':
       final Map<dynamic, dynamic> args = call.arguments ?? {};
       final int recorderId = args['recorderId'] as int;
@@ -144,8 +144,8 @@ final class OggOpusPlayerPluginImpl extends OggOpusPlayer {
   final ValueNotifier<PlayerState> _playerState = ValueNotifier<PlayerState>(PlayerState.idle);
   int _position = 0;
 
-  // [_position] updated timestamp, in milliseconds.
-  int _lastUpdateTimeStamp = -1;
+  // Monotonic time elapsed since [_position] was last updated by native.
+  final Stopwatch _positionStopwatch = Stopwatch();
 
   double _playbackRate = 1;
 
@@ -156,19 +156,11 @@ final class OggOpusPlayerPluginImpl extends OggOpusPlayer {
 
   @override
   int get currentPosition {
-    if (_lastUpdateTimeStamp == -1) {
-      return 0;
-    }
     if (state.value != PlayerState.playing) {
       return _position;
     }
-    final int offset = SystemClock.uptime().inMilliseconds - _lastUpdateTimeStamp;
-    assert(offset >= 0, 'offset should be positive.');
-    if (offset < 0) {
-      return _position;
-    }
-
-    return (_position + (offset / 1000.0) * _playbackRate).toInt();
+    final double elapsedSeconds = _positionStopwatch.elapsedMicroseconds / Duration.microsecondsPerSecond;
+    return (_position + elapsedSeconds * _playbackRate).toInt();
   }
 
   @override
