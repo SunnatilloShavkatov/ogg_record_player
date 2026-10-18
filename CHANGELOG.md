@@ -1,3 +1,9 @@
+## 2.2.0
+
+### Added
+- **Android**: Playback now takes audio focus (`USAGE_MEDIA`, speech content) instead of ignoring it. Starting a voice message pauses other apps' audio, and the player pauses when it loses the focus. A transient loss (for example a call) reports `PlayerState.paused` until playback resumes, so `currentPosition` no longer keeps advancing while the player is silent.
+- **iOS**: Playback activates the shared `AVAudioSession` itself (`playback` category, `spokenAudio` mode) when it starts and deactivates it, notifying other apps, when it pauses, stops or ends. An interruption, a recording or another player taking the session pauses it, and `play()` does nothing while a recording owns the session. Apps no longer need `audio_session` (or their own `setActive`) before playing.
+
 ## 2.1.0
 
 ### Changed

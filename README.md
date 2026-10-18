@@ -21,7 +21,7 @@ dependencies:
   ogg_record_player:
     git:
       url: https://github.com/SunnatilloShavkatov/ogg_record_player.git
-      ref: 2.1.0
+      ref: 2.2.0
 ```
 
 ## Platform setup
@@ -78,6 +78,16 @@ await player.dispose();
 ```
 
 The file must exist when the player is created (asserted in debug builds).
+
+Playback manages the platform's audio session itself, so no audio session package is needed to play:
+
+- **Android:** the player takes audio focus when playback starts, which pauses other apps' audio, and gives it up when
+  it pauses or ends. If another app (or another player) takes the focus for good, the player pauses and `state`
+  becomes `paused`. During a short loss, such as a call, `state` is `paused` and playback resumes by itself.
+- **iOS:** the player activates the audio session (`playback` category, `spokenAudio` mode) when playback starts and
+  deactivates it when it pauses or ends, so other apps can resume. A phone call, a recording or another player
+  starting pauses it. `play()` does nothing while a recording owns the session.
+- **macOS:** there is no audio session, so nothing changes.
 
 ### Recording
 

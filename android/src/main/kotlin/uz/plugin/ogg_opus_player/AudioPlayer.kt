@@ -28,11 +28,14 @@ class AudioPlayer(
     private val callback: OnPlayerStatusChangedCallback,
 ) : Player.Listener {
 
+    // ExoPlayer takes audio focus when playback starts and gives it up when it pauses or ends. Losing the focus
+    // pauses the player (`playWhenReady` becomes false) or, for a transient loss, suppresses playback.
     private val player = ExoPlayer.Builder(context)
         .setAudioAttributes(
             AudioAttributes.Builder()
+                .setUsage(C.USAGE_MEDIA)
                 .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH).build(),
-            false
+            true
         )
         .setTrackSelector(DefaultTrackSelector(context)).build().apply {
             volume = 1.0f
@@ -50,7 +53,10 @@ class AudioPlayer(
                 }
 
                 Player.STATE_READY -> {
-                    return if (player.playWhenReady) {
+                    // A transient focus loss (for example a call) keeps `playWhenReady` true but silences the player.
+                    return if (player.playWhenReady &&
+                        player.playbackSuppressionReason == Player.PLAYBACK_SUPPRESSION_REASON_NONE
+                    ) {
                         Status.Playing
                     } else {
                         Status.Paused
@@ -98,6 +104,10 @@ class AudioPlayer(
     }
 
     override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+        callback(this)
+    }
+
+    override fun onPlaybackSuppressionReasonChanged(playbackSuppressionReason: Int) {
         callback(this)
     }
 

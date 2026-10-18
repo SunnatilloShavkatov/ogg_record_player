@@ -134,7 +134,9 @@ final class OggOpusPlayer {
 
   deinit {
     if status == .playing || status == .paused {
-      stop()
+      AudioQueueStop(audioQueue, true)
+      // Synchronously: an asynchronous deactivation would keep a reference to `self` beyond `deinit`.
+      deactivateAudioSession(synchronously: true)
     }
     dispose()
     #if DEBUG
@@ -148,6 +150,9 @@ final class OggOpusPlayer {
     case .initial:
       break
     case .stopped:
+      guard activateAudioSession() else {
+        return
+      }
       status = .playing
       for i in 0 ..< numberOfBuffers {
         bufferCallback(inUserData: selfAsRawPointer, inAQ: audioQueue, inBuffer: buffers[i])
@@ -156,6 +161,9 @@ final class OggOpusPlayer {
     case .playing:
       break
     case .paused:
+      guard activateAudioSession() else {
+        return
+      }
       status = .playing
       AudioQueueStart(audioQueue, nil)
     }
@@ -168,6 +176,7 @@ final class OggOpusPlayer {
     }
     AudioQueuePause(audioQueue)
     status = .paused
+    deactivateAudioSession()
   }
 
   func stop() {
@@ -177,6 +186,33 @@ final class OggOpusPlayer {
     }
     AudioQueueStop(audioQueue, true)
     status = .stopped
+    deactivateAudioSession()
+  }
+
+  /// Makes the shared audio session ready for playback (iOS only). Returns `false` when a higher priority client,
+  /// such as a recording, owns the session, in which case playback must not start.
+  private func activateAudioSession() -> Bool {
+    #if os(iOS)
+      do {
+        try AudioSession.shared.activate(client: self) { session in
+          try session.setCategory(.playback, mode: .spokenAudio, options: [])
+        }
+      } catch {
+        return false
+      }
+    #endif
+    return true
+  }
+
+  /// Gives the audio session up (iOS only) so that other apps can resume their audio.
+  fileprivate func deactivateAudioSession(synchronously: Bool = false) {
+    #if os(iOS)
+      if synchronously {
+        try? AudioSession.shared.deactivate(client: self, notifyOthersOnDeactivation: true)
+      } else {
+        AudioSession.shared.deactivateAsynchronously(client: self, notifyOthersOnDeactivation: true)
+      }
+    #endif
   }
 
   func dispose() {
@@ -186,6 +222,24 @@ final class OggOpusPlayer {
     }
   }
 }
+
+#if os(iOS)
+
+  extension OggOpusPlayer: AudioSessionClient {
+    var priority: AudioSessionClientPriority {
+      .playback
+    }
+
+    // A phone call, a recording or another player took the session over: pause rather than keep playing.
+    // Asynchronous, because `AudioSession.activate` holds its lock while it calls this on the previous client.
+    func audioSessionDidBeganInterruption(_ audioSession: AudioSession) {
+      DispatchQueue.main.async { [weak self] in
+        self?.pause()
+      }
+    }
+  }
+
+#endif
 
 fileprivate func bufferCallback(
   inUserData: UnsafeMutableRawPointer?,
@@ -220,5 +274,6 @@ fileprivate func runningChangedCallback(
   let player = Unmanaged<OggOpusPlayer>.fromOpaque(ptr).takeUnretainedValue()
   if player.reader.didReachEnd {
     player.status = .stopped
+    player.deactivateAudioSession()
   }
 }
