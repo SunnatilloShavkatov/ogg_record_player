@@ -1,143 +1,65 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
+import 'package:ogg_record_player/src/log_message.dart';
+import 'package:ogg_record_player/src/ogg_opus_exception.dart';
+import 'package:ogg_record_player/src/ogg_record_player_platform_interface.dart';
+import 'package:ogg_record_player/src/platform_events.dart';
 import 'package:ogg_record_player/src/player.dart';
 import 'package:ogg_record_player/src/player_state.dart';
-
-PlayerState _convertFromRawValue(int state) {
-  switch (state) {
-    case 0:
-      return PlayerState.idle;
-    case 1:
-      return PlayerState.playing;
-    case 2:
-      return PlayerState.paused;
-    case 3:
-      return PlayerState.ended;
-    default:
-      assert(false, 'unknown state: $state');
-      return PlayerState.error;
-  }
-}
-
-const MethodChannel _channel = MethodChannel('ogg_record_player');
 
 final Map<int, OggOpusPlayerPluginImpl> _players = <int, OggOpusPlayerPluginImpl>{};
 final Map<int, OggOpusRecorderPluginImpl> _recorders = <int, OggOpusRecorderPluginImpl>{};
 
-bool _initialized = false;
+OggRecordPlayerPlatform get _platform => OggRecordPlayerPlatform.instance;
 
-void _initChannelIfNeeded() {
-  if (_initialized) {
+bool _isSubscribed = false;
+
+// One subscription for all instances: each event is routed by id, so the cost doesn't grow with the player count.
+void _subscribeIfNeeded() {
+  if (_isSubscribed) {
     return;
   }
-  _initialized = true;
-  _channel.setMethodCallHandler((MethodCall call) async {
-    try {
-      return await _handleMethodCall(call);
-    } on Exception catch (error, stacktrace) {
-      debugPrint('_handleMethodCall: $error $stacktrace');
-    }
-  });
-}
-
-Future<dynamic> _handleMethodCall(MethodCall call) async {
-  switch (call.method) {
-    case 'onPlayerStateChanged':
-      final Map<dynamic, dynamic> args = call.arguments ?? {};
-      final int state = args['state'] as int;
-      final num position = args['position'];
-      final num duration = args['duration'] ?? 1;
-      final int playerId = args['playerId'] as int;
-      final double? speed = args['speed'] as double?;
-      final OggOpusPlayerPluginImpl? player = _players[playerId];
-      if (player == null) {
-        return;
-      }
-      player
-        .._position = position.toInt()
-        .._duration = duration.toInt()
-        .._playbackRate = speed ?? 1.0
-        .._positionStopwatch.reset()
-        .._positionStopwatch.start();
-      // Notify after the fields above so listeners read the fresh position.
-      player._playerState.value = _convertFromRawValue(state);
-    case 'onRecorderCanceled':
-      final Map<dynamic, dynamic> args = call.arguments ?? {};
-      final int recorderId = args['recorderId'] as int;
-      final OggOpusRecorderPluginImpl? recorder = _recorders[recorderId];
-      final int reason = args['reason'] as int;
-      if (recorder == null) {
-        return;
-      }
-      recorder.onCanceled(reason);
-    case 'onRecorderStartFailed':
-      final Map<dynamic, dynamic> args = call.arguments ?? {};
-      final int recorderId = args['recorderId'] as int;
-      final OggOpusRecorderPluginImpl? recorder = _recorders[recorderId];
-      if (recorder == null) {
-        return;
-      }
-      final String reason = args['error'] as String;
-      debugPrint('onRecorderStartFailed: $reason');
-      recorder.onStartFailed(reason);
-    case 'onRecorderFinished':
-      final Map<dynamic, dynamic> args = call.arguments ?? {};
-      final int recorderId = args['recorderId'] as int;
-      final OggOpusRecorderPluginImpl? recorder = _recorders[recorderId];
-      if (recorder == null) {
-        return;
-      }
-      final int duration = args['duration'] as int;
-      final List<int> waveform = (args['waveform'] as List).cast<int>();
-      recorder.onFinished(duration, waveform);
-    default:
-      break;
-  }
+  _isSubscribed = true;
+  _platform.playerStateChanges.listen((PlayerStateEvent event) => _players[event.playerId]?._onStateChanged(event));
+  _platform.recorderEvents.listen((RecorderEvent event) => _recorders[event.recorderId]?._onEvent(event));
 }
 
 final class OggOpusPlayerPluginImpl extends OggOpusPlayer {
-  new(this._path) : super.create() {
-    _initChannelIfNeeded();
-    assert(() {
-      if (_path.isEmpty) {
-        throw Exception('path can not be empty');
-      }
-      if (!File(_path).existsSync()) {
-        throw Exception('file not exists');
-      }
-      return true;
-    }(), '');
-
+  /// [_create] opens the source on the native side and returns the player id.
+  new(this._create) : super.create() {
+    _subscribeIfNeeded();
     scheduleMicrotask(() async {
       if (_disposed) {
         _createCompleter.complete();
         return;
       }
       try {
-        _playerId = await _channel.invokeMethod('create', _path);
+        _playerId = await _create(_platform);
         if (_disposed) {
           // dispose() was called while we were creating - cleanup native side
-          await _channel.invokeMethod('stop', _playerId);
+          await _platform.disposePlayer(_playerId);
         } else {
           _players[_playerId] = this;
           _playerState.value = PlayerState.paused;
         }
+      } on OggOpusPlayerException catch (error) {
+        _fail(error);
       } on Exception catch (error, stacktrace) {
-        debugPrint('create play failed. error: $error $stacktrace');
-        _playerState.value = PlayerState.error;
+        logMessage('create player failed:', error: error, stackTrace: stacktrace);
+        _fail(OggOpusPlayerException(code: OggOpusPlayerException.unknown, message: error.toString()));
       }
       _createCompleter.complete();
     });
   }
 
-  final String _path;
+  final Future<int> Function(OggRecordPlayerPlatform platform) _create;
 
   int _playerId = -1;
 
   bool _disposed = false;
+
+  OggOpusPlayerException? _error;
 
   final Completer<void> _createCompleter = Completer<void>();
 
@@ -150,6 +72,9 @@ final class OggOpusPlayerPluginImpl extends OggOpusPlayer {
   double _playbackRate = 1;
 
   int _duration = 1;
+
+  @override
+  OggOpusPlayerException? get error => _error;
 
   @override
   int get duration => _duration;
@@ -171,36 +96,35 @@ final class OggOpusPlayerPluginImpl extends OggOpusPlayer {
     if (waitCreate) {
       await _createCompleter.future;
     }
-    if (_playerId <= 0) {
+    if (_playerId <= 0 || _disposed) {
       return;
     }
-    await _channel.invokeMethod('play', _playerId);
+    await _platform.play(_playerId);
   }
 
   @override
   Future<void> pause() async {
-    if (_playerId <= 0) {
+    if (_playerId <= 0 || _disposed) {
       return;
     }
-    await _channel.invokeMethod('pause', _playerId);
+    await _platform.pause(_playerId);
   }
 
   @override
   Future<void> setPlaybackRate(double speed) async {
     await _createCompleter.future;
-    if (_playerId <= 0) {
+    if (_playerId <= 0 || _disposed) {
       return;
     }
-    await _channel.invokeMethod('setPlaybackSpeed', <String, num>{'playerId': _playerId, 'speed': speed});
+    await _platform.setPlaybackSpeed(_playerId, speed);
   }
 
   @override
   Future<void> dispose() async {
     _disposed = true;
     await _createCompleter.future;
-    if (_playerId > 0) {
-      _players.remove(_playerId);
-      await _channel.invokeMethod('stop', _playerId);
+    if (_playerId > 0 && _players.remove(_playerId) != null) {
+      await _platform.disposePlayer(_playerId);
     }
   }
 
@@ -210,29 +134,45 @@ final class OggOpusPlayerPluginImpl extends OggOpusPlayer {
     if (_playerId <= 0) {
       return 0;
     }
-    final int? duration = await _channel.invokeMethod('getDuration', _playerId);
-    return duration;
+    return _platform.getDuration(_playerId);
+  }
+
+  void _fail(OggOpusPlayerException error) {
+    logMessage('create player failed:', error: error);
+    _error = error;
+    _playerState.value = PlayerState.error;
+  }
+
+  void _onStateChanged(PlayerStateEvent event) {
+    _position = event.position;
+    _duration = event.duration;
+    _playbackRate = event.speed;
+    _positionStopwatch
+      ..reset()
+      ..start();
+    // Notify after the fields above so listeners read the fresh position.
+    _playerState.value = event.state;
   }
 }
 
 final class OggOpusRecorderPluginImpl extends OggOpusRecorder {
   new(this._path) : super.create() {
-    _initChannelIfNeeded();
+    _subscribeIfNeeded();
     scheduleMicrotask(() async {
       if (_disposed) {
         _createCompleter.complete();
         return;
       }
       try {
-        _id = await _channel.invokeMethod('createRecorder', _path);
+        _id = await _platform.createRecorder(_path);
         if (_disposed) {
           // dispose() was called while we were creating - cleanup native side
-          await _channel.invokeMethod('destroyRecorder', _id);
+          await _platform.destroyRecorder(_id);
         } else {
           _recorders[_id] = this;
         }
-      } on Exception catch (e) {
-        debugPrint('create recorder failed. error: $e');
+      } on Exception catch (e, s) {
+        logMessage('create recorder failed:', error: e, stackTrace: s);
       }
       _createCompleter.complete();
     });
@@ -243,7 +183,7 @@ final class OggOpusRecorderPluginImpl extends OggOpusRecorder {
 
   bool _disposed = false;
   bool _startFailed = false;
-  Object? _startError;
+  OggOpusRecorderException? _startError;
 
   double? _duration;
   List<int>? _waveformData;
@@ -262,8 +202,8 @@ final class OggOpusRecorderPluginImpl extends OggOpusRecorder {
     _startFailed = false;
     _startError = null;
     try {
-      await _channel.invokeMethod('startRecord', _id);
-    } on Exception catch (e) {
+      await _platform.startRecord(_id);
+    } on OggOpusRecorderException catch (e) {
       _startFailed = true;
       _startError = e;
       _safeCompleteStop();
@@ -281,22 +221,28 @@ final class OggOpusRecorderPluginImpl extends OggOpusRecorder {
     if (_startFailed) {
       return;
     }
-    await _channel.invokeMethod('stopRecord', _id);
+    try {
+      await _platform.stopRecord(_id);
+    } on OggOpusRecorderException {
+      // No finish callback follows a failed stop; don't leave the completer pending.
+      _safeCompleteStop();
+      rethrow;
+    }
     await _stopCompleter?.future;
   }
 
   @override
   Future<void> dispose() async {
     _disposed = true;
+    _safeCompleteStop();
     await _createCompleter.future;
-    if (_id > 0) {
-      _recorders.remove(_id);
-      await _channel.invokeMethod('destroyRecorder', _id);
+    if (_id > 0 && _recorders.remove(_id) != null) {
+      await _platform.destroyRecorder(_id);
     }
   }
 
   @override
-  Object? get startError => _startError;
+  OggOpusRecorderException? get startError => _startError;
 
   @override
   Future<double> duration() async => _duration ?? 0.0;
@@ -304,24 +250,23 @@ final class OggOpusRecorderPluginImpl extends OggOpusRecorder {
   @override
   Future<List<int>> getWaveformData() async => _waveformData ?? <int>[];
 
-  void onStartFailed(String reason) {
-    _startFailed = true;
-    _startError = reason;
-    _safeCompleteStop();
-  }
-
-  void onCanceled(int reason) {
-    _safeCompleteStop();
-  }
-
-  void onFinished(int duration, List<int> waveform) {
-    _duration = duration / 1000;
-    _waveformData = waveform;
+  void _onEvent(RecorderEvent event) {
+    switch (event) {
+      case RecorderStartFailedEvent(:final String error):
+        logMessage('recorder start failed: $error');
+        _startFailed = true;
+        _startError = OggOpusRecorderException(code: OggOpusRecorderException.startFailed, message: error);
+      case RecorderCanceledEvent():
+        break;
+      case RecorderFinishedEvent(:final int duration, :final Uint8List waveform):
+        _duration = duration / 1000;
+        _waveformData = waveform;
+    }
     _safeCompleteStop();
   }
 
   void _safeCompleteStop() {
-    final completer = _stopCompleter;
+    final Completer<void>? completer = _stopCompleter;
     if (completer != null && !completer.isCompleted) {
       completer.complete();
     }

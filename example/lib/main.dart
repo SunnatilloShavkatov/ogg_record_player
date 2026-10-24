@@ -1,4 +1,3 @@
-
 import 'dart:async';
 import 'dart:io';
 
@@ -127,7 +126,7 @@ class _OpusOggPlayerWidgetState extends State<_OpusOggPlayerWidget> {
     await session.configure(const AudioSessionConfiguration.music());
     final bool active = await session.setActive(true);
     debugPrint('active: $active');
-    _player?.state.addListener(()  {
+    _player?.state.addListener(() {
       if (mounted) {
         setState(() {});
         if (_player?.state.value == PlayerState.ended) {

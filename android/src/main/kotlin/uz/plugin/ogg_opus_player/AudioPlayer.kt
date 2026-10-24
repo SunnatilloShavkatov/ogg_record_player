@@ -1,18 +1,35 @@
 package uz.plugin.ogg_opus_player
 
 import android.content.Context
+import android.net.Uri
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.ByteArrayDataSource
+import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import java.io.File
 
 typealias OnPlayerStatusChangedCallback = (AudioPlayer) -> Unit
+
+/** Plays a local file (also used for cached downloads). */
+@UnstableApi
+internal fun fileMediaSource(context: Context, path: String): MediaSource =
+    ProgressiveMediaSource.Factory(DefaultDataSource.Factory(context))
+        .createMediaSource(MediaItem.fromUri(Uri.fromFile(File(path))))
+
+/** Plays an Ogg Opus stream held in memory, e.g. bytes received from a backend, without a temporary file. */
+@UnstableApi
+internal fun bytesMediaSource(bytes: ByteArray): MediaSource =
+    ProgressiveMediaSource.Factory(DataSource.Factory { ByteArrayDataSource(bytes) })
+        .createMediaSource(MediaItem.fromUri(Uri.parse("memory://ogg_record_player")))
 
 enum class Status {
     Initial,
@@ -24,7 +41,7 @@ enum class Status {
 @UnstableApi
 class AudioPlayer(
     context: Context,
-    path: String,
+    mediaSource: MediaSource,
     private val callback: OnPlayerStatusChangedCallback,
 ) : Player.Listener {
 
@@ -81,11 +98,8 @@ class AudioPlayer(
 
 
     init {
-        val mediaItem = MediaItem.fromUri(path)
-        val datasource = ProgressiveMediaSource.Factory(DefaultDataSource.Factory(context))
-            .createMediaSource(mediaItem)
         player.addListener(this)
-        player.setMediaSource(datasource)
+        player.setMediaSource(mediaSource)
         player.prepare()
     }
 

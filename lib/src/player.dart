@@ -2,15 +2,36 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import 'package:ogg_record_player/src/ogg_opus_exception.dart';
+import 'package:ogg_record_player/src/ogg_record_player_platform_interface.dart';
 import 'package:ogg_record_player/src/player_plugin_impl.dart';
 import 'package:ogg_record_player/src/player_state.dart';
 
 abstract class OggOpusPlayer {
-  factory(String path) {
-    if (Platform.isIOS || Platform.isMacOS || Platform.isAndroid) {
-      return OggOpusPlayerPluginImpl(path);
-    }
-    throw UnsupportedError('Platform not supported');
+  /// Picks [OggOpusPlayer.url] for an `http`/`https` [path] and [OggOpusPlayer.file] otherwise. Prefer the
+  /// explicit constructors when the source type is known.
+  factory(String path) => isRemoteAudioPath(path) ? OggOpusPlayer.url(path) : OggOpusPlayer.file(File(path));
+
+  /// Plays the local Ogg Opus [file].
+  factory file(File file) {
+    _ensureSupportedPlatform();
+    assert(file.existsSync(), 'file not exists: ${file.path}');
+    return OggOpusPlayerPluginImpl((OggRecordPlayerPlatform platform) => platform.createPlayerFromFile(file.path));
+  }
+
+  /// Plays an `http`/`https` [url]. It is downloaded into the cache directory before the player becomes ready
+  /// and reused for 7 days, the same way on Android, iOS and macOS; [play] waits for the download.
+  factory url(String url) {
+    _ensureSupportedPlatform();
+    assert(isRemoteAudioPath(url), 'url must be http or https: $url');
+    return OggOpusPlayerPluginImpl((OggRecordPlayerPlatform platform) => platform.createPlayerFromUrl(url));
+  }
+
+  /// Plays [bytes], a whole Ogg Opus stream (e.g. a backend response), straight from memory: nothing is written
+  /// to disk and nothing is cached.
+  factory bytes(Uint8List bytes) {
+    _ensureSupportedPlatform();
+    return OggOpusPlayerPluginImpl((OggRecordPlayerPlatform platform) => platform.createPlayerFromBytes(bytes));
   }
 
   new create();
@@ -22,6 +43,9 @@ abstract class OggOpusPlayer {
   Future<void> dispose();
 
   ValueListenable<PlayerState> get state;
+
+  /// Why the player could not be created, or `null`. Set when [state] becomes [PlayerState.error].
+  OggOpusPlayerException? get error;
 
   /// Current playing position, in seconds.
   int get currentPosition;
@@ -47,9 +71,8 @@ abstract class OggOpusRecorder {
 
   new create();
 
-  /// Starts recording. Throws if the platform rejects the request, e.g. a
-  /// `PlatformException` with code `PERMISSION_DENIED` when the microphone
-  /// permission has not been granted.
+  /// Starts recording. Throws an [OggOpusRecorderException] if the platform rejects the request, e.g. with
+  /// code [OggOpusRecorderException.permissionDenied] when the microphone permission has not been granted.
   Future<void> start();
 
   /// Stops recording. Returns immediately without a result when [start] failed;
@@ -58,9 +81,9 @@ abstract class OggOpusRecorder {
 
   Future<void> dispose();
 
-  /// The reason [start] failed (the thrown exception or the native failure
-  /// message), or `null` if it has not failed.
-  Object? get startError;
+  /// The reason [start] failed (the thrown exception, or [OggOpusRecorderException.startFailed] when the native
+  /// recorder failed afterwards), or `null` if it has not failed.
+  OggOpusRecorderException? get startError;
 
   /// get the recorded audio waveform data.
   /// must be called after [stop] is called.
@@ -69,4 +92,17 @@ abstract class OggOpusRecorder {
   /// get the recorded audio duration.
   /// must be called after [stop] is called.
   Future<double> duration();
+}
+
+void _ensureSupportedPlatform() {
+  if (!(Platform.isIOS || Platform.isMacOS || Platform.isAndroid)) {
+    throw UnsupportedError('Platform not supported');
+  }
+}
+
+/// Whether [path] is an `http`/`https` URL.
+@visibleForTesting
+bool isRemoteAudioPath(String path) {
+  final String scheme = Uri.tryParse(path)?.scheme.toLowerCase() ?? '';
+  return scheme == 'https' || scheme == 'http';
 }

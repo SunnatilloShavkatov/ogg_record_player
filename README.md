@@ -21,7 +21,7 @@ dependencies:
   ogg_record_player:
     git:
       url: https://github.com/SunnatilloShavkatov/ogg_record_player.git
-      ref: 2.2.0
+      ref: 2.3.0
 ```
 
 ## Platform setup
@@ -30,7 +30,7 @@ dependencies:
 
 `RECORD_AUDIO` is declared by the plugin, but it is a runtime permission: **your app must request it
 before calling `OggOpusRecorder.start()`** (for example with `permission_handler`).
-Without it `start()` throws a `PlatformException` with code `PERMISSION_DENIED`.
+Without it `start()` throws an `OggOpusRecorderException` with code `PERMISSION_DENIED`.
 
 ### iOS / macOS
 
@@ -78,6 +78,60 @@ await player.dispose();
 ```
 
 The file must exist when the player is created (asserted in debug builds).
+
+### Audio sources
+
+Each source has its own constructor:
+
+```dart
+final fromFile = OggOpusPlayer.file(File('/path/to/voice.ogg'));
+final fromUrl = OggOpusPlayer.url('https://example.com/voice.ogg');
+final fromBytes = OggOpusPlayer.bytes(response.bodyBytes); // Uint8List of a whole .ogg stream
+await fromUrl.play(); // waits until the audio is ready
+```
+
+`OggOpusPlayer(path)` still works and picks `url` or `file` from the scheme.
+
+`OggOpusPlayer.bytes` plays straight from memory: nothing is written to disk or cached. Use it when the
+backend returns the audio as binary.
+
+For `OggOpusPlayer.url`, Android, iOS and macOS follow the same flow: the file is downloaded once into the app's cache directory
+(`ogg_record_player/<sha256 of the URL>.ogg`), played from disk, and reused by later players for **7 days**.
+After that it is deleted (expired files are purged in the background when the plugin starts) and the next
+player downloads it again. Concurrent players for the same URL share one download.
+
+The plugin declares the Android `INTERNET` permission. Plain `http://` needs cleartext traffic allowed by
+your app (Android network security config, iOS App Transport Security). On macOS, a sandboxed app needs the
+`com.apple.security.network.client` entitlement.
+
+### Errors
+
+When a player cannot be created, `state` becomes `PlayerState.error` and `error` holds an
+`OggOpusPlayerException` whose `code` is the same on every platform:
+
+| Code              | Meaning                                                      |
+|-------------------|--------------------------------------------------------------|
+| `INVALID_ARGUMENT`| Empty path or bytes, or a URL that is not http/https         |
+| `FILE_NOT_FOUND`  | The local file does not exist                                |
+| `NETWORK_ERROR`   | No connection, timeout, TLS or DNS failure                   |
+| `HTTP_ERROR`      | The server answered with a non-2xx status                    |
+| `INVALID_FILE`    | File, download or bytes are not an Ogg Opus stream           |
+| `IO_ERROR`        | The download could not be written to the cache               |
+| `UNKNOWN`         | Anything else                                                |
+
+```dart
+player.state.addListener(() {
+  if (player.state.value == PlayerState.error) {
+    final OggOpusPlayerException? error = player.error;
+    if (error?.code == OggOpusPlayerException.networkError) {
+      // show "no connection"
+    }
+  }
+});
+```
+
+`OggOpusRecorder.start()` throws an `OggOpusRecorderException` (for example with code
+`PERMISSION_DENIED`), and `startError` holds the same exception type.
 
 Playback manages the platform's audio session itself, so no audio session package is needed to play:
 

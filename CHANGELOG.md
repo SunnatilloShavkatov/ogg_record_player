@@ -1,8 +1,17 @@
-## 2.2.0
+## 2.3.0
 
 ### Added
+- `OggOpusPlayer.file(File)`, `OggOpusPlayer.url(url)` and `OggOpusPlayer.bytes(bytes)`, backed by separate native methods (`createFromFile`, `createFromUrl`, `createFromBytes`; the old `create` is gone). `OggOpusPlayer(path)` picks `url` or `file` from the scheme.
+- `OggOpusPlayer.bytes` plays a whole Ogg Opus stream from memory, without a temporary file: `op_open_memory` on iOS/macOS, Media3 `ByteArrayDataSource` on Android.
+- `OggOpusPlayer.url` downloads `http`/`https` URLs with the same flow on Android, iOS and macOS: the file is downloaded once into the cache directory (`ogg_record_player/<sha256 of the URL>.ogg`), played from disk and reused for 7 days, then deleted and downloaded again. Expired files are purged in the background when the plugin starts; concurrent players for the same URL share one download. Downloads that are not Ogg streams are rejected.
+- `OggOpusPlayer.error`: an `OggOpusPlayerException` with a platform-independent `code` (`INVALID_ARGUMENT`, `FILE_NOT_FOUND`, `NETWORK_ERROR`, `HTTP_ERROR`, `INVALID_FILE`, `IO_ERROR`, `UNKNOWN`) when the player could not be created.
+- `OggRecordPlayerPlatform` (a `PlatformInterface`) with the default `MethodChannelOggRecordPlayer`; `OggOpusPlayer` and `OggOpusRecorder` no longer talk to the method channel directly.
+- **Android**: the plugin declares the `INTERNET` permission. A missing local file now fails `create` with `FILE_NOT_FOUND` instead of producing an idle player.
 - **Android**: Playback now takes audio focus (`USAGE_MEDIA`, speech content) instead of ignoring it. Starting a voice message pauses other apps' audio, and the player pauses when it loses the focus. A transient loss (for example a call) reports `PlayerState.paused` until playback resumes, so `currentPosition` no longer keeps advancing while the player is silent.
 - **iOS**: Playback activates the shared `AVAudioSession` itself (`playback` category, `spokenAudio` mode) when it starts and deactivates it, notifying other apps, when it pauses, stops or ends. An interruption, a recording or another player taking the session pauses it, and `play()` does nothing while a recording owns the session. Apps no longer need `audio_session` (or their own `setActive`) before playing.
+
+### Changed
+- **Breaking**: `OggOpusRecorder.start()` throws `OggOpusRecorderException` instead of `PlatformException`, and `startError` is typed `OggOpusRecorderException?` (a native start failure is reported with code `START_FAILED`).
 
 ## 2.1.0
 

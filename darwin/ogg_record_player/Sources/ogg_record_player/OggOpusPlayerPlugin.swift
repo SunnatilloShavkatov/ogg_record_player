@@ -22,6 +22,7 @@ public class OggOpusPlayerPlugin: NSObject, FlutterPlugin {
     let channel = FlutterMethodChannel(name: "ogg_record_player", binaryMessenger: messenger)
     let instance = OggOpusPlayerPlugin(channel: channel)
     registrar.addMethodCallDelegate(instance, channel: channel)
+    RemoteAudioCache.shared.purgeExpiredFiles()
   }
 
   let channel: FlutterMethodChannel
@@ -40,24 +41,69 @@ public class OggOpusPlayerPlugin: NSObject, FlutterPlugin {
     ])
   }
 
+  /// Registers a created player; `make` throws when the source cannot be opened.
+  private func registerPlayer(result: @escaping FlutterResult, onFailure: (() -> Void)? = nil,
+                              make: () throws -> OggOpusPlayer) {
+    do {
+      let player = try make()
+      let id = generatedPlayerId()
+      player.onStatusChanged = { _ in
+        self.handlePlayerStateChanged(id: id, player)
+      }
+      playerDictionary[id] = player
+      result(id)
+    } catch {
+      onFailure?()
+      result(PlayerError.from(error).flutterError(details: error.localizedDescription))
+    }
+  }
+
+  private func createFromFile(path: String, result: @escaping FlutterResult, onFailure: (() -> Void)? = nil) {
+    guard FileManager.default.fileExists(atPath: path) else {
+      result(PlayerError.fileNotFound.flutterError(details: path))
+      return
+    }
+    registerPlayer(result: result, onFailure: onFailure, make: { try OggOpusPlayer(path: path) })
+  }
+
+  private func createFromUrl(_ url: URL, result: @escaping FlutterResult) {
+    RemoteAudioCache.shared.localFile(for: url) { download in
+      switch download {
+      case let .success(file):
+        self.createFromFile(path: file.path, result: result) {
+          // Not a playable Ogg Opus file: don't keep it, so a later attempt downloads it again.
+          RemoteAudioCache.shared.removeCachedFile(for: url)
+        }
+      case let .failure(error):
+        result(PlayerError.from(error).flutterError(details: error.localizedDescription))
+      }
+    }
+  }
+
   public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     switch call.method {
-    case "create":
-      guard let path = call.arguments as? String else {
-        result(FlutterError(code: "1", message: "path can not be null", details: nil))
+    case "createFromFile":
+      guard let path = call.arguments as? String, !path.isEmpty else {
+        result(PlayerError.invalidArgument.flutterError(details: "path must be a non-empty string"))
         break
       }
-      do {
-        let player = try OggOpusPlayer(path: path)
-        let id = generatedPlayerId()
-        player.onStatusChanged = { _ in
-          self.handlePlayerStateChanged(id: id, player)
-        }
-        playerDictionary[id] = player
-        result(id)
-      } catch {
-        result(FlutterError(code: "2", message: error.localizedDescription, details: nil))
+      createFromFile(path: path, result: result)
+    case "createFromUrl":
+      guard let string = call.arguments as? String, let url = URL(string: string), RemoteAudioCache.isRemote(url) else {
+        result(PlayerError.invalidArgument.flutterError(details: "url must be an http or https URL"))
+        break
       }
+      createFromUrl(url, result: result)
+    case "createFromBytes":
+      guard let bytes = (call.arguments as? FlutterStandardTypedData)?.data, !bytes.isEmpty else {
+        result(PlayerError.invalidArgument.flutterError(details: "bytes must not be empty"))
+        break
+      }
+      guard bytes.starts(with: oggSignature) else {
+        result(PlayerError.invalidFile.flutterError(details: "bytes are not an Ogg stream"))
+        break
+      }
+      registerPlayer(result: result, make: { try OggOpusPlayer(data: bytes) })
     case "play":
       if let playerId = call.arguments as? Int {
         playerDictionary[playerId]?.play()
@@ -121,6 +167,54 @@ public class OggOpusPlayerPlugin: NSObject, FlutterPlugin {
     default:
       result(FlutterMethodNotImplemented)
     }
+  }
+}
+
+/// Every Ogg page starts with "OggS".
+private let oggSignature = Data("OggS".utf8)
+
+/// Error codes of the `createFrom*` methods, shared with Android (`PlayerError.kt`) and mapped to `OggOpusPlayerException` in Dart.
+enum PlayerError: String {
+  case invalidArgument = "INVALID_ARGUMENT"
+  case fileNotFound = "FILE_NOT_FOUND"
+  case networkError = "NETWORK_ERROR"
+  case httpError = "HTTP_ERROR"
+  case invalidFile = "INVALID_FILE"
+  case ioError = "IO_ERROR"
+  case unknown = "UNKNOWN"
+
+  var message: String {
+    switch self {
+    case .invalidArgument: return "Invalid audio source"
+    case .fileNotFound: return "Audio file does not exist"
+    case .networkError: return "Failed to download audio"
+    case .httpError: return "Server rejected the audio request"
+    case .invalidFile: return "File is not a playable Ogg Opus stream"
+    case .ioError: return "Failed to store downloaded audio"
+    case .unknown: return "Failed to create player"
+    }
+  }
+
+  static func from(_ error: Error) -> PlayerError {
+    switch error {
+    case let error as RemoteAudioCache.Error:
+      switch error {
+      case .httpStatus: return .httpError
+      case .invalidFile: return .invalidFile
+      }
+    case is OggOpusReader.Error:
+      return .invalidFile
+    case is URLError:
+      return .networkError
+    case let error as CocoaError where error.isFileError:
+      return .ioError
+    default:
+      return .unknown
+    }
+  }
+
+  func flutterError(details: String?) -> FlutterError {
+    FlutterError(code: rawValue, message: message, details: details)
   }
 }
 

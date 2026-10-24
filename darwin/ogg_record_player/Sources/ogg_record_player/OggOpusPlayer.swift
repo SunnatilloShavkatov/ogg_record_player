@@ -88,8 +88,17 @@ final class OggOpusPlayer {
     Unmanaged.passUnretained(self).toOpaque()
   }
 
-  init(path: String) throws {
-    reader = try OggOpusReader(fileAtPath: path)
+  convenience init(path: String) throws {
+    try self.init(reader: OggOpusReader(fileAtPath: path))
+  }
+
+  /// Plays an Ogg Opus stream held in memory, e.g. bytes received from a backend, without a temporary file.
+  convenience init(data: Data) throws {
+    try self.init(reader: OggOpusReader(data: data))
+  }
+
+  private init(reader: OggOpusReader) throws {
+    self.reader = reader
 
     var status: OSStatus = noErr
 

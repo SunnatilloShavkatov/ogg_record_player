@@ -1,4 +1,5 @@
 #pragma once
+#include <stddef.h>
 #include <stdint.h>
 
 #include "opus.h"
@@ -9,6 +10,8 @@ typedef struct OggOpusFile OggOpusFile;
 #define OP_EFAULT (-129)
 
 OggOpusFile *op_open_file(const char *_path, int *_error);
+/* Decodes in place: `_data` must stay valid until op_free(). */
+OggOpusFile *op_open_memory(const unsigned char *_data, size_t _size, int *_error);
 void op_free(OggOpusFile *_of);
 int op_read(OggOpusFile *_of, opus_int16 *_pcm, int _buf_size, int *_li);
 /* Total PCM sample count at 48 kHz. `_li` of -1 means the whole stream.

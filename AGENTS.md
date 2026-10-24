@@ -14,9 +14,15 @@
 
 ## Cross-platform channel contract
 - Channel name is fixed: `MethodChannel('ogg_record_player')`.
-- Dart → native methods: `create`, `play`, `pause`, `stop`, `getDuration`, `setPlaybackSpeed`, `createRecorder`, `startRecord`, `stopRecord`, `destroyRecorder`.
+- Dart → native methods: `createFromFile` (path), `createFromUrl` (http/https string), `createFromBytes` (`Uint8List`), `play`, `pause`, `stop`, `getDuration`, `setPlaybackSpeed`, `createRecorder`, `startRecord`, `stopRecord`, `destroyRecorder`.
 - Native → Dart callbacks: `onPlayerStateChanged`, `onRecorderCanceled`, `onRecorderStartFailed`, `onRecorderFinished`.
 - Player/recorder instances are tracked by generated integer IDs on all sides (`_players`, `_recorders`, `playerDictionary`, `players`).
+
+## Remote playback and errors
+- `createFromUrl` uses one flow on every platform: `RemoteAudioCache` (`RemoteAudioCache.swift` / `RemoteAudioCache.kt`) downloads to `<caches>/ogg_record_player/<sha256(url)>.ogg`, checks the `OggS` signature, reuses the file for 7 days and purges expired files when the plugin registers. Keep the two implementations in sync.
+- `createFromBytes` never touches disk: Darwin decodes with `op_open_memory` (`OggOpusReader(data:)`), Android plays through Media3 `ByteArrayDataSource` (`bytesMediaSource`). Both reject input without the `OggS` signature as `INVALID_FILE`.
+- `createFrom*` failures use the same codes on both sides (`PlayerError` in Swift and Kotlin): `INVALID_ARGUMENT`, `FILE_NOT_FOUND`, `NETWORK_ERROR`, `HTTP_ERROR`, `INVALID_FILE`, `IO_ERROR`, `UNKNOWN`. Dart maps them to `OggOpusPlayerException`; recorder failures map to `OggOpusRecorderException`.
+- Dart layering: `OggRecordPlayerPlatform` (platform interface) → `MethodChannelOggRecordPlayer` (only place touching the channel, converts `PlatformException`) → `player_plugin_impl.dart` (public classes, one event subscription routed by id).
 
 ## Platform implementation boundaries
 - Android playback uses Media3 ExoPlayer (`AudioPlayer.kt`); recording uses `AudioRecord` + JNI (`OpusAudioRecorder.kt` + `android/src/main/cpp/audio.c`).
@@ -33,6 +39,7 @@
 - `getDuration` returns duration in seconds matching Android/iOS/macOS.
 
 ## Developer workflows
+- **Do not build iOS/Android/macOS** (`flutter build ...`, `xcodebuild`, Gradle, `flutter run`) to verify changes. The maintainer builds and tests on devices themselves; stop after `flutter analyze` and report what still needs device testing.
 - Main local smoke test: run example app (`example/lib/main.dart`) and verify play, pause, speed toggle, record/stop.
 - Useful commands from repo root:
   - `flutter analyze`

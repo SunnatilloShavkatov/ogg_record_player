@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.source.MediaSource
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -37,19 +38,78 @@ class OggOpusPlayerPlugin : FlutterPlugin, MethodCallHandler {
         context = flutterPluginBinding.applicationContext
         channel = MethodChannel(flutterPluginBinding.binaryMessenger, "ogg_record_player")
         channel.setMethodCallHandler(this)
+        RemoteAudioCache.purgeExpiredFiles(context)
+    }
+
+    // Same checks as Darwin, so both platforms report a missing file the same way instead of an idle player.
+    @OptIn(UnstableApi::class)
+    private fun createFromFile(path: String, result: Result) {
+        if (!File(path).isFile) {
+            result.fail(PlayerError.FILE_NOT_FOUND, path)
+            return
+        }
+        registerPlayer(result) { fileMediaSource(context, path) }
+    }
+
+    private fun createFromUrl(url: String, result: Result) {
+        RemoteAudioCache.localFile(context, url) { download ->
+            download.fold(
+                onSuccess = { file -> createFromFile(file.path, result) },
+                onFailure = { error -> result.fail(PlayerError.from(error), error.localizedMessage) },
+            )
+        }
+    }
+
+    @OptIn(UnstableApi::class)
+    private fun createFromBytes(bytes: ByteArray, result: Result) {
+        if (!bytes.hasOggSignature()) {
+            result.fail(PlayerError.INVALID_FILE, "bytes are not an Ogg stream")
+            return
+        }
+        registerPlayer(result) { bytesMediaSource(bytes) }
+    }
+
+    @OptIn(UnstableApi::class)
+    private fun registerPlayer(result: Result, mediaSource: () -> MediaSource) {
+        try {
+            val id = generatePlayerId()
+            players[id] = AudioPlayer(context, mediaSource()) {
+                handlePlayerStateChanged(id, it)
+            }
+            result.success(id)
+        } catch (e: Exception) {
+            result.fail(PlayerError.from(e), e.localizedMessage)
+        }
     }
 
     @OptIn(UnstableApi::class)
     override fun onMethodCall(call: MethodCall, result: Result) {
         when (call.method) {
-            "create" -> {
-                val path = call.arguments as String
-                val id = generatePlayerId()
-                val player = AudioPlayer(context, path) {
-                    handlePlayerStateChanged(id, it)
+            "createFromFile" -> {
+                val path = call.arguments as? String
+                if (path.isNullOrEmpty()) {
+                    result.fail(PlayerError.INVALID_ARGUMENT, "path must be a non-empty string")
+                    return
                 }
-                players[id] = player
-                result.success(id)
+                createFromFile(path, result)
+            }
+
+            "createFromUrl" -> {
+                val url = call.arguments as? String
+                if (url == null || !RemoteAudioCache.isRemote(url)) {
+                    result.fail(PlayerError.INVALID_ARGUMENT, "url must be an http or https URL")
+                    return
+                }
+                createFromUrl(url, result)
+            }
+
+            "createFromBytes" -> {
+                val bytes = call.arguments as? ByteArray
+                if (bytes == null || bytes.isEmpty()) {
+                    result.fail(PlayerError.INVALID_ARGUMENT, "bytes must not be empty")
+                    return
+                }
+                createFromBytes(bytes, result)
             }
 
             "play" -> {
