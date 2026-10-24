@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:ogg_record_player/ogg_record_player.dart';
-import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 void main() {
@@ -12,7 +11,7 @@ void main() {
 
   testWidgets('record -> write -> read -> play', (WidgetTester tester) async {
     final Directory dir = await getTemporaryDirectory();
-    final String path = p.join(dir.path, 'itest.ogg');
+    final String path = File.fromUri(dir.uri.resolve('itest.ogg')).path;
     final File file = File(path);
     if (file.existsSync()) {
       file.deleteSync();

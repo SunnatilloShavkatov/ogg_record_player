@@ -104,13 +104,14 @@ void main() {
       'playerId': 3,
       'state': 1,
       'position': 4.6,
+      'duration': 12.5,
       'speed': 1.5,
     });
 
     expect(events.single.playerId, 3);
     expect(events.single.state, PlayerState.playing);
-    expect(events.single.position, 4);
-    expect(events.single.duration, 1);
+    expect(events.single.position, 4.6);
+    expect(events.single.duration, 12.5);
     expect(events.single.speed, 1.5);
   });
 

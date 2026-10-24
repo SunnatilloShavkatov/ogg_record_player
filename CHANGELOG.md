@@ -1,3 +1,17 @@
+## 2.4.0
+
+### Fixed
+- Improved playback duration reporting and the example app's position and total duration display.
+- **iOS:** Resume an interrupted player when iOS permits it, unless the user paused or disposed it during the interruption. Release the session synchronously to avoid a stale deactivation silencing resumed playback.
+- **iOS:** Decode into fixed stereo buffers off the main thread, handle Ogg discontinuities without corrupting buffer offsets, and retain the last samples through completion. Remove a player callback retain cycle.
+- **Android:** Keep the final playback position at completion and rewind only when replay is requested. Publish coherent state snapshots for buffering, audio focus and speed changes.
+
+### Changed
+- Removed unnecessary native playback and recording logs.
+- Refreshed the example UI, moved the page into its own file, and removed the example's direct `path` dependency.
+- **Android:** Use audio-only Media3 renderers and Ogg-only extraction for release code shrinking; discard unused native codec sections and exports. Arbitrate players within the plugin and release players/recorders on engine detach.
+- **Darwin build scripts:** Omit debug information from future release codec builds, retaining LTO and optimized hot paths. Existing vendored archives are unchanged.
+
 ## 2.3.0
 
 ### Added

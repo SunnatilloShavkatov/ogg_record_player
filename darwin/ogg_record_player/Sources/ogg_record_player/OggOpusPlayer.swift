@@ -1,17 +1,9 @@
 import AVFoundation
 import Foundation
 
-fileprivate let audioQueueBufferSize: Int32 = 11520
-
+/// Session ownership and public state stay on main; decoding and buffer refill
+/// belong to OggOpusPlayback's serial queue.
 final class OggOpusPlayer {
-  enum Error: Swift.Error {
-    case newOutput
-    case allocateBuffers
-    case addPropertyListener
-    case stop
-    case cancelled
-  }
-
   enum Status: Int {
     case initial = 0
     case playing = 1
@@ -20,269 +12,139 @@ final class OggOpusPlayer {
   }
 
   var onStatusChanged: ((OggOpusPlayer) -> Void)?
+  private(set) var status: Status = .stopped {
+    didSet { onStatusChanged?(self) }
+  }
+
+  let duration: Float64
+  private let playback: OggOpusPlayback
+  private var lastPosition: Float64 = 0
+  private var wantsPlayback = false
+  private var resumeAfterInterruption = false
+  private var generation = 0
 
   var currentTime: Float64 {
     assert(Queue.main.isCurrent)
-    var timeStamp = AudioTimeStamp()
-    let status = AudioQueueGetCurrentTime(audioQueue, nil, &timeStamp, nil)
-    if status == noErr {
-      return timeStamp.mSampleTime / sampleRate
-    } else {
-      return 0
+    if status != .stopped {
+      lastPosition = min(duration, max(0, playback.position ?? lastPosition))
     }
+    return lastPosition
   }
 
-  /// Duration of the file, in seconds.
-  var duration: Float64 {
-    reader.duration
-  }
-
-  var playRate: Float = 1.0 {
+  var playRate: Float = 1 {
     didSet {
       assert(Queue.main.isCurrent)
-      if playRate < 0.5 {
-        playRate = 0.5
-      }
-      if playRate > 2 {
-        playRate = 2.0
-      }
-      AudioQueueSetParameter(audioQueue, kAudioQueueParam_PlayRate, playRate)
+      playRate = playRate.isFinite ? min(2, max(0.5, playRate)) : oldValue
+      playback.setRate(playRate)
     }
-  }
-
-  fileprivate let reader: OggOpusReader
-
-  @Synchronized(value: .stopped)
-  fileprivate(set) var status: Status {
-    didSet {
-      self.onStatusChanged?(self)
-    }
-  }
-
-  fileprivate var audioQueue: AudioQueueRef!
-
-  private let sampleRate: Float64 = 48000
-  private let numberOfBuffers = 3
-
-  private var buffers = [AudioQueueBufferRef]()
-
-  private lazy var format: AudioStreamBasicDescription = {
-    let mBitsPerChannel: UInt32 = 16
-    let mChannelsPerFrame: UInt32 = 1
-    let mBytesPerFrame = (mBitsPerChannel / 8) * mChannelsPerFrame
-    let mFramesPerPacket: UInt32 = 1
-    let mBytesPerPacket: UInt32 = mFramesPerPacket * mBytesPerFrame
-    let format = AudioStreamBasicDescription(mSampleRate: sampleRate,
-                                             mFormatID: kAudioFormatLinearPCM,
-                                             mFormatFlags: kAudioFormatFlagIsSignedInteger | kAudioFormatFlagIsPacked,
-                                             mBytesPerPacket: mBytesPerPacket,
-                                             mFramesPerPacket: mFramesPerPacket,
-                                             mBytesPerFrame: mBytesPerFrame,
-                                             mChannelsPerFrame: mChannelsPerFrame,
-                                             mBitsPerChannel: mBitsPerChannel,
-                                             mReserved: 0)
-    return format
-  }()
-
-  private var selfAsRawPointer: UnsafeMutableRawPointer {
-    Unmanaged.passUnretained(self).toOpaque()
   }
 
   convenience init(path: String) throws {
     try self.init(reader: OggOpusReader(fileAtPath: path))
   }
 
-  /// Plays an Ogg Opus stream held in memory, e.g. bytes received from a backend, without a temporary file.
   convenience init(data: Data) throws {
     try self.init(reader: OggOpusReader(data: data))
   }
 
   private init(reader: OggOpusReader) throws {
-    self.reader = reader
-
-    var status: OSStatus = noErr
-
-    var audioQueue: AudioQueueRef!
-    status = AudioQueueNewOutput(&format,
-                                 bufferCallback,
-                                 selfAsRawPointer,
-                                 CFRunLoopGetMain(),
-                                 CFRunLoopMode.commonModes.rawValue,
-                                 0,
-                                 &audioQueue)
-    guard status == noErr, let audioQueue = audioQueue else {
-      throw Error.newOutput
+    duration = reader.duration
+    playback = try OggOpusPlayback(reader: reader)
+    playback.onFinished = { [weak self] generation, reachedEnd in
+      guard let self = self, self.generation == generation, self.wantsPlayback else { return }
+      self.lastPosition = reachedEnd ? self.duration : (self.playback.position ?? self.lastPosition)
+      self.wantsPlayback = false
+      self.resumeAfterInterruption = false
+      self.status = .stopped
+      self.deactivateAudioSession()
     }
-
-    status = AudioQueueAddPropertyListener(audioQueue,
-                                           kAudioQueueProperty_IsRunning,
-                                           runningChangedCallback(_:_:_:),
-                                           selfAsRawPointer)
-    guard status == noErr else {
-      throw Error.addPropertyListener
-    }
-
-    self.audioQueue = audioQueue
-
-    buffers.reserveCapacity(numberOfBuffers)
-    for _ in 0 ..< numberOfBuffers {
-      var buffer: AudioQueueBufferRef!
-      status = AudioQueueAllocateBuffer(audioQueue, UInt32(audioQueueBufferSize), &buffer)
-      guard status == noErr else {
-        dispose()
-        throw Error.allocateBuffers
-      }
-      buffers.append(buffer)
-    }
-
-    AudioQueueSetParameter(audioQueue, kAudioQueueParam_Volume, 1)
-    var enable: UInt32 = 1
-    AudioQueueSetProperty(audioQueue, kAudioQueueProperty_EnableTimePitch, &enable,
-                          UInt32(MemoryLayout.size(ofValue: enable)))
   }
 
   deinit {
-    if status == .playing || status == .paused {
-      AudioQueueStop(audioQueue, true)
-      // Synchronously: an asynchronous deactivation would keep a reference to `self` beyond `deinit`.
-      deactivateAudioSession(synchronously: true)
-    }
-    dispose()
-    #if DEBUG
-      print("OggOpusPlayer \(Unmanaged<OggOpusPlayer>.passUnretained(self).toOpaque()) deinitialized")
-    #endif
+    playback.dispose()
+    deactivateAudioSession()
   }
 
   func play() {
     assert(Queue.main.isCurrent)
-    switch status {
-    case .initial:
-      break
-    case .stopped:
-      guard activateAudioSession() else {
-        return
+    guard !wantsPlayback, activateAudioSession() else { return }
+    resumeAfterInterruption = false
+    wantsPlayback = true
+    generation += 1
+    let command = generation
+    let restart = status == .stopped
+    if restart { lastPosition = 0 }
+    playback.start(restart: restart, rate: playRate, generation: command) { [weak self] started in
+      guard let self = self, self.generation == command, self.wantsPlayback else { return }
+      if started {
+        self.status = .playing
+      } else {
+        self.wantsPlayback = false
+        self.status = .stopped
+        self.deactivateAudioSession()
       }
-      status = .playing
-      for i in 0 ..< numberOfBuffers {
-        bufferCallback(inUserData: selfAsRawPointer, inAQ: audioQueue, inBuffer: buffers[i])
-      }
-      AudioQueueStart(audioQueue, nil)
-    case .playing:
-      break
-    case .paused:
-      guard activateAudioSession() else {
-        return
-      }
-      status = .playing
-      AudioQueueStart(audioQueue, nil)
     }
   }
 
   func pause() {
     assert(Queue.main.isCurrent)
-    guard status == .playing else {
-      return
-    }
-    AudioQueuePause(audioQueue)
-    status = .paused
+    // Also cancel resumption when the UI pauses an already interrupted player.
+    resumeAfterInterruption = false
+    pausePlayback()
     deactivateAudioSession()
+  }
+
+  private func pausePlayback() {
+    guard wantsPlayback || status == .playing else { return }
+    wantsPlayback = false
+    generation += 1
+    lastPosition = playback.pause(generation: generation) ?? lastPosition
+    status = .paused
   }
 
   func stop() {
     assert(Queue.main.isCurrent)
-    guard status != .stopped else {
-      return
-    }
-    AudioQueueStop(audioQueue, true)
+    resumeAfterInterruption = false
+    wantsPlayback = false
+    generation += 1
+    lastPosition = currentTime
+    playback.stop(generation: generation)
     status = .stopped
     deactivateAudioSession()
   }
 
-  /// Makes the shared audio session ready for playback (iOS only). Returns `false` when a higher priority client,
-  /// such as a recording, owns the session, in which case playback must not start.
   private func activateAudioSession() -> Bool {
-    #if os(iOS)
-      do {
-        try AudioSession.shared.activate(client: self) { session in
-          try session.setCategory(.playback, mode: .spokenAudio, options: [])
-        }
-      } catch {
-        return false
+    do {
+      try AudioSession.shared.activate(client: self) { session in
+        // No mixing/ducking: other media yields while this player runs.
+        // The system selects the output, including Bluetooth A2DP.
+        try session.setCategory(.playback, mode: .spokenAudio, options: [])
       }
-    #endif
-    return true
-  }
-
-  /// Gives the audio session up (iOS only) so that other apps can resume their audio.
-  fileprivate func deactivateAudioSession(synchronously: Bool = false) {
-    #if os(iOS)
-      if synchronously {
-        try? AudioSession.shared.deactivate(client: self, notifyOthersOnDeactivation: true)
-      } else {
-        AudioSession.shared.deactivateAsynchronously(client: self, notifyOthersOnDeactivation: true)
-      }
-    #endif
-  }
-
-  func dispose() {
-    assert(Queue.main.isCurrent)
-    if let audioQueue = audioQueue {
-      AudioQueueDispose(audioQueue, true)
+      return true
+    } catch {
+      return false
     }
+  }
+
+  private func deactivateAudioSession() {
+    // A queued deactivation could otherwise silence a later play() on this instance.
+    try? AudioSession.shared.deactivate(client: self, notifyOthersOnDeactivation: true)
   }
 }
 
-#if os(iOS)
+extension OggOpusPlayer: AudioSessionClient {
+  var priority: AudioSessionClientPriority { .playback }
 
-  extension OggOpusPlayer: AudioSessionClient {
-    var priority: AudioSessionClientPriority {
-      .playback
-    }
-
-    // A phone call, a recording or another player took the session over: pause rather than keep playing.
-    // Asynchronous, because `AudioSession.activate` holds its lock while it calls this on the previous client.
-    func audioSessionDidBeganInterruption(_ audioSession: AudioSession) {
-      DispatchQueue.main.async { [weak self] in
-        self?.pause()
-      }
-    }
+  func audioSessionDidBeganInterruption(_ audioSession: AudioSession, mayResume: Bool) {
+    resumeAfterInterruption = mayResume && wantsPlayback
+    pausePlayback()
+    // The OS already deactivated the session; keep the interrupted client until
+    // the matching end notification, unless the user explicitly pauses it.
   }
 
-#endif
-
-fileprivate func bufferCallback(
-  inUserData: UnsafeMutableRawPointer?,
-  inAQ: AudioQueueRef,
-  inBuffer: AudioQueueBufferRef
-) {
-  guard let ptr = inUserData else {
-    return
-  }
-  let player = Unmanaged<OggOpusPlayer>.fromOpaque(ptr).takeUnretainedValue()
-  guard player.status == .playing else {
-    return
-  }
-  if let pcmData = try? player.reader.pcmData(maxLength: audioQueueBufferSize), pcmData.count > 0 {
-    inBuffer.pointee.mAudioDataByteSize = UInt32(pcmData.count)
-    pcmData.copyBytes(to: inBuffer.pointee.mAudioData.assumingMemoryBound(to: Data.Element.self),
-                      count: pcmData.count)
-    AudioQueueEnqueueBuffer(player.audioQueue, inBuffer, 0, nil)
-  } else {
-    AudioQueueStop(player.audioQueue, false)
-  }
-}
-
-fileprivate func runningChangedCallback(
-  _ inUserData: UnsafeMutableRawPointer?,
-  _ inAQ: AudioQueueRef,
-  _ inID: AudioQueuePropertyID
-) {
-  guard let ptr = inUserData else {
-    return
-  }
-  let player = Unmanaged<OggOpusPlayer>.fromOpaque(ptr).takeUnretainedValue()
-  if player.reader.didReachEnd {
-    player.status = .stopped
-    player.deactivateAudioSession()
+  func audioSessionDidEndInterruption(_ audioSession: AudioSession, shouldResume: Bool) {
+    let resume = resumeAfterInterruption && shouldResume
+    resumeAfterInterruption = false
+    if resume { play() }
   }
 }

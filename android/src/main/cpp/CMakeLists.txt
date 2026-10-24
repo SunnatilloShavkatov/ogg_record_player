@@ -21,6 +21,11 @@ add_library(ogg_record_player_plugin SHARED
 target_include_directories(ogg_record_player_plugin PRIVATE
         ${distribution_OPUS_DIR}/include)
 
+# Keep JNI entry points visible, but discard unused codec sections and prevent
+# static codec symbols from becoming roots in the shared library's export table.
+target_compile_options(ogg_record_player_plugin PRIVATE
+        -ffunction-sections -fdata-sections -fvisibility=hidden)
+
 target_link_libraries(ogg_record_player_plugin
         android
         lib_opusenc
@@ -28,4 +33,7 @@ target_link_libraries(ogg_record_player_plugin
         lib_ogg
         log)
 
-target_link_options(ogg_record_player_plugin PRIVATE "-Wl,-z,max-page-size=16384")
+target_link_options(ogg_record_player_plugin PRIVATE
+        "-Wl,--gc-sections"
+        "-Wl,--exclude-libs,ALL"
+        "-Wl,-z,max-page-size=16384")

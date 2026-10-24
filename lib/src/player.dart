@@ -48,10 +48,10 @@ abstract class OggOpusPlayer {
   OggOpusPlayerException? get error;
 
   /// Current playing position, in seconds.
-  int get currentPosition;
+  double get currentPosition;
 
   /// playing duration, in seconds.
-  int get duration;
+  double get duration;
 
   /// Current playing position, in seconds.
   Future<int?> getDuration();

@@ -27,6 +27,7 @@ public class OggRecordPlayerPlugin: NSObject, FlutterPlugin {
     channel.invokeMethod("onPlayerStateChanged", arguments: [
       "state": player.status.rawValue,
       "position": player.currentTime,
+      "duration": player.duration,
       "playerId": id,
       "speed": player.playRate,
     ])
@@ -38,8 +39,8 @@ public class OggRecordPlayerPlugin: NSObject, FlutterPlugin {
     do {
       let player = try make()
       let id = generatedPlayerId()
-      player.onStatusChanged = { _ in
-        self.handlePlayerStateChanged(id: id, player)
+      player.onStatusChanged = { [weak self] player in
+        self?.handlePlayerStateChanged(id: id, player)
       }
       playerDictionary[id] = player
       result(id)
@@ -254,7 +255,6 @@ class PluginOggOpusRecorderDelegate: OggOpusRecorderDelegate {
   }
 
   func oggOpusRecorder(_ recorder: OggOpusRecorder, didFinishRecordingWithMetadata data: AudioMetadata) {
-    debugPrint("onRecorderFinished: ")
     channel.invokeMethod("onRecorderFinished", arguments: [
       "duration": NSNumber(value: data.duration),
       "waveform": FlutterStandardTypedData(bytes: data.waveform),

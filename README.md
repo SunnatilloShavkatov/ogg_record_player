@@ -20,7 +20,7 @@ dependencies:
   ogg_record_player:
     git:
       url: https://github.com/SunnatilloShavkatov/ogg_record_player.git
-      ref: 2.3.0
+      ref: 2.4.0
 ```
 
 ## Platform setup
@@ -128,8 +128,28 @@ Playback manages the platform's audio session itself, so no audio session packag
   it pauses or ends. If another app (or another player) takes the focus for good, the player pauses and `state`
   becomes `paused`. During a short loss, such as a call, `state` is `paused` and playback resumes by itself.
 - **iOS:** the player activates the audio session (`playback` category, `spokenAudio` mode) when playback starts and
-  deactivates it when it pauses or ends, so other apps can resume. A phone call, a recording or another player
-  starting pauses it. `play()` does nothing while a recording owns the session.
+  deactivates it when it pauses or ends, so other apps can resume. A phone call pauses playback; it resumes when
+  the interruption ends and iOS supplies `shouldResume`. Manually pausing or disposing during the interruption
+  cancels that resumption. A recording or another player taking the session pauses the previous player without
+  automatic resumption. `play()` does nothing while a recording owns the session or a system interruption is active.
+
+Both platforms select the audio output natively, including Bluetooth. The plugin does not add automatic pause
+on headphone/Bluetooth disconnection. Only one of this plugin's players plays at a time, and starting a recording
+pauses its players. All focus/interruption handling is native; no Dart interruption listener is required.
+
+### Native library size
+
+Android instantiates only audio renderers and Ogg extractors so R8 can remove unrelated Media3 code. Enable
+shrinking in the consuming app's release configuration to benefit; other plugins may still require those parts.
+The native linker also discards unused codec sections and hides static codec exports while retaining JNI entry points.
+
+The iOS xcframeworks contain both device and simulator slices; their repository size is larger than the code
+linked into a device app. Keep dead code stripping enabled for release builds. The codec rebuild scripts omit
+release debug information and retain LTO and optimized codec hot paths. This takes effect after the maintainer
+rebuilds the vendored frameworks; the checked-in binaries have not been rebuilt as part of this change.
+
+Measure changes using matching release builds, architectures and app dependencies. Device checks are listed in
+[`docs/native-audio-verification.md`](docs/native-audio-verification.md).
 
 ### Recording
 

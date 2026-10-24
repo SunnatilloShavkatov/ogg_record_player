@@ -30,11 +30,15 @@ class OggRecordPlayerPlugin : FlutterPlugin, MethodCallHandler {
 
     private lateinit var channel: MethodChannel
     private lateinit var context: Context
+    private var attached = false
+    private var engineGeneration = 0
 
     private val players: MutableMap<Int, AudioPlayer> = Collections.synchronizedMap(mutableMapOf())
     private val recorders: MutableMap<Int, OpusAudioRecorder> = Collections.synchronizedMap(mutableMapOf())
 
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
+        attached = true
+        engineGeneration++
         context = flutterPluginBinding.applicationContext
         channel = MethodChannel(flutterPluginBinding.binaryMessenger, "ogg_record_player")
         channel.setMethodCallHandler(this)
@@ -48,11 +52,16 @@ class OggRecordPlayerPlugin : FlutterPlugin, MethodCallHandler {
             result.fail(PlayerError.FILE_NOT_FOUND, path)
             return
         }
-        registerPlayer(result) { fileMediaSource(context, path) }
+        registerPlayer(result) { fileMediaSource(path) }
     }
 
     private fun createFromUrl(url: String, result: Result) {
+        val requestGeneration = engineGeneration
         RemoteAudioCache.localFile(context, url) { download ->
+            if (!attached || engineGeneration != requestGeneration) {
+                result.fail(PlayerError.UNKNOWN, "Flutter engine detached before the download completed")
+                return@localFile
+            }
             download.fold(
                 onSuccess = { file -> createFromFile(file.path, result) },
                 onFailure = { error -> result.fail(PlayerError.from(error), error.localizedMessage) },
@@ -114,7 +123,15 @@ class OggRecordPlayerPlugin : FlutterPlugin, MethodCallHandler {
 
             "play" -> {
                 (call.arguments as? Int)?.let {
-                    players[it]?.play()
+                    val requested = players[it]
+                    if (requested != null) {
+                        // Audio focus is shared by the app. Also arbitrate its own
+                        // players so two voice messages cannot overlap.
+                        players.values.toList().forEach { player ->
+                            if (player !== requested) player.pause()
+                        }
+                        requested.play()
+                    }
                 }
                 result.success(null)
             }
@@ -126,8 +143,7 @@ class OggRecordPlayerPlugin : FlutterPlugin, MethodCallHandler {
                     }
 
                     is Int -> {
-                        android.util.Log.d("getDuration","getDuration native ${players[call.arguments as Int]?.duration}")
-                        result.success(players[call.arguments as Int]?.duration)
+                        result.success(players[call.arguments as Int]?.duration?.toInt())
                     }
 
                     else -> {
@@ -157,7 +173,6 @@ class OggRecordPlayerPlugin : FlutterPlugin, MethodCallHandler {
                 val player = players[playerId]
                 if (player != null && speed != null) {
                     player.playbackRate = speed
-                    handlePlayerStateChanged(playerId!!, player)
                 }
                 result.success(null)
             }
@@ -165,9 +180,11 @@ class OggRecordPlayerPlugin : FlutterPlugin, MethodCallHandler {
             "createRecorder" -> {
                 val path = call.arguments as String
                 val id = generatePlayerId()
+                val requestGeneration = engineGeneration
                 val recorder =
                     OpusAudioRecorder(context, File(path), object : OpusAudioRecorder.Callback {
                         override fun onCancel() {
+                            if (!attached || engineGeneration != requestGeneration) return
                             channel.invokeMethod(
                                 "onRecorderCanceled", mapOf(
                                     "recorderId" to id,
@@ -177,6 +194,7 @@ class OggRecordPlayerPlugin : FlutterPlugin, MethodCallHandler {
                         }
 
                         override fun sendAudio(file: File, duration: Long, waveForm: ByteArray) {
+                            if (!attached || engineGeneration != requestGeneration) return
                             channel.invokeMethod(
                                 "onRecorderFinished", mapOf(
                                     "recorderId" to id,
@@ -199,7 +217,11 @@ class OggRecordPlayerPlugin : FlutterPlugin, MethodCallHandler {
                     return
                 }
                 (call.arguments as? Int)?.let {
-                    recorders[it]?.startRecording()
+                    val recorder = recorders[it]
+                    if (recorder != null) {
+                        players.values.toList().forEach { player -> player.pause() }
+                        recorder.startRecording()
+                    }
                 }
                 result.success(null)
             }
@@ -239,7 +261,14 @@ class OggRecordPlayerPlugin : FlutterPlugin, MethodCallHandler {
         )
     }
 
+    @OptIn(UnstableApi::class)
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
+        attached = false
+        engineGeneration++
         channel.setMethodCallHandler(null)
+        players.values.toList().forEach { it.destroy() }
+        players.clear()
+        recorders.values.toList().forEach { it.stopRecording(AudioEndStatus.CANCEL) }
+        recorders.clear()
     }
 }

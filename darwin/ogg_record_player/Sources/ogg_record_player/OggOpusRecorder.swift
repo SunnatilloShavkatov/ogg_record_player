@@ -93,12 +93,6 @@ final class OggOpusRecorder {
     self.path = path
   }
 
-  deinit {
-    #if DEBUG
-      print("OggOpusRecroder \(Unmanaged<OggOpusRecorder>.passUnretained(self).toOpaque()) deinitialized")
-    #endif
-  }
-
   func record(for duration: TimeInterval) {
     #if os(iOS)
       if AVAudioSession.sharedInstance().secondaryAudioShouldBeSilencedHint {
@@ -184,11 +178,11 @@ final class OggOpusRecorder {
       .audioRecord
     }
 
-    func audioSessionDidBeganInterruption(_ audioSession: AudioSession) {
+    func audioSessionDidBeganInterruption(_ audioSession: AudioSession, mayResume: Bool) {
       cancel(for: .audioSessionInterrupted)
     }
 
-    func audioSessionDidEndInterruption(_ audioSession: AudioSession) {
+    func audioSessionDidEndInterruption(_ audioSession: AudioSession, shouldResume: Bool) {
       delegate?.oggOpusRecorderDidDetectAudioSessionInterruptionEnd(self)
     }
 
@@ -260,7 +254,6 @@ extension OggOpusRecorder {
     }
 
     sampleRate = 16000
-    debugPrint("sampleRate: \(sampleRate)")
     let streamFormat = audioRecorderNativeStreamDescription(Float64(sampleRate))
     self.writer = try OggOpusWriter(path: path, inputSampleRate: sampleRate)
 

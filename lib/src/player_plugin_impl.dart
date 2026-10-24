@@ -64,28 +64,28 @@ final class OggRecordPlayerPluginImpl extends OggOpusPlayer {
   final Completer<void> _createCompleter = Completer<void>();
 
   final ValueNotifier<PlayerState> _playerState = ValueNotifier<PlayerState>(PlayerState.idle);
-  int _position = 0;
+  double _position = 0;
 
   // Monotonic time elapsed since [_position] was last updated by native.
   final Stopwatch _positionStopwatch = Stopwatch();
 
   double _playbackRate = 1;
 
-  int _duration = 1;
+  double _duration = 0;
 
   @override
   OggOpusPlayerException? get error => _error;
 
   @override
-  int get duration => _duration;
+  double get duration => _duration;
 
   @override
-  int get currentPosition {
+  double get currentPosition {
     if (state.value != PlayerState.playing) {
       return _position;
     }
     final double elapsedSeconds = _positionStopwatch.elapsedMicroseconds / Duration.microsecondsPerSecond;
-    return (_position + elapsedSeconds * _playbackRate).toInt();
+    return _position + elapsedSeconds * _playbackRate;
   }
 
   @override

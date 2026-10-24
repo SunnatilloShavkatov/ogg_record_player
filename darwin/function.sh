@@ -7,7 +7,9 @@ if [ "${DEBUG}" == "true" ]; then
   OPT_LDFLAGS=""
   OPT_CONFIG_ARGS="--enable-assertions --disable-asm"
 else
-  OPT_CFLAGS="-Ofast -flto -g"
+  # Keep codec hot paths optimized, but do not ship embedded debug information
+  # in every device/simulator archive. LTO still removes unused codec routines.
+  OPT_CFLAGS="-O3 -flto -g0 -DNDEBUG"
   OPT_LDFLAGS="-flto"
   OPT_CONFIG_ARGS=""
 fi

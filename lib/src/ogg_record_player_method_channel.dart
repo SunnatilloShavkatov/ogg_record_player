@@ -138,8 +138,8 @@ class MethodChannelOggRecordPlayer extends OggRecordPlayerPlatform {
             PlayerStateEvent(
               playerId: args['playerId'] as int,
               state: _playerStateFromRaw(args['state'] as int),
-              position: (args['position'] as num).toInt(),
-              duration: (args['duration'] as num? ?? 1).toInt(),
+              position: (args['position'] as num).toDouble(),
+              duration: (args['duration'] as num? ?? 0).toDouble(),
               speed: (args['speed'] as num? ?? 1).toDouble(),
             ),
           );

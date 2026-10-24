@@ -16,10 +16,10 @@ final class PlayerStateEvent {
   final PlayerState state;
 
   /// Seconds.
-  final int position;
+  final double position;
 
   /// Seconds.
-  final int duration;
+  final double duration;
   final double speed;
 }
 

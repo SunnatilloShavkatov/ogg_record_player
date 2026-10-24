@@ -72,18 +72,15 @@ static inline void set_bits(uint8_t *bytes, int32_t bitOffset, int32_t value) {
 
 JNIEXPORT jlong JNICALL Java_uz_plugin_ogg_1record_1player_OpusAudioRecorder_startRecord(JNIEnv *env, jobject thiz, jstring path) {
     if (!path) {
-        LOGE("startRecord: path is NULL");
         return 0;
     }
     const char *pathStr = (*env)->GetStringUTFChars(env, path, 0);
     if (!pathStr) {
-        LOGE("startRecord: GetStringUTFChars failed");
         return 0;
     }
 
     OpusRecorderContext *ctx = (OpusRecorderContext *)calloc(1, sizeof(OpusRecorderContext));
     if (!ctx) {
-        LOGE("startRecord: Failed to allocate OpusRecorderContext");
         (*env)->ReleaseStringUTFChars(env, path, pathStr);
         return 0;
     }
@@ -94,7 +91,6 @@ JNIEXPORT jlong JNICALL Java_uz_plugin_ogg_1record_1player_OpusAudioRecorder_sta
 
     ctx->comments = ope_comments_create();
     if (!ctx->comments) {
-        LOGE("startRecord: Create OggOpusComments failed");
         pthread_mutex_destroy(&ctx->lock);
         free(ctx);
         (*env)->ReleaseStringUTFChars(env, path, pathStr);
@@ -106,7 +102,6 @@ JNIEXPORT jlong JNICALL Java_uz_plugin_ogg_1record_1player_OpusAudioRecorder_sta
     (*env)->ReleaseStringUTFChars(env, path, pathStr);
 
     if (error != OPE_OK || !ctx->enc) {
-        LOGE("startRecord: Create OggOpusEnc failed with error: %d", error);
         ope_comments_destroy(ctx->comments);
         pthread_mutex_destroy(&ctx->lock);
         free(ctx);
@@ -115,7 +110,6 @@ JNIEXPORT jlong JNICALL Java_uz_plugin_ogg_1record_1player_OpusAudioRecorder_sta
 
     error = ope_encoder_ctl(ctx->enc, OPUS_SET_BITRATE_REQUEST, 16 * 1024);
     if (error != OPE_OK) {
-        LOGE("startRecord: Set bitrate failed with error: %d", error);
         ope_encoder_destroy(ctx->enc);
         ope_comments_destroy(ctx->comments);
         pthread_mutex_destroy(&ctx->lock);
@@ -134,17 +128,14 @@ JNIEXPORT jlong JNICALL Java_uz_plugin_ogg_1record_1player_OpusAudioRecorder_sta
 
 JNIEXPORT jint JNICALL Java_uz_plugin_ogg_1record_1player_OpusAudioRecorder_writeFrame(JNIEnv *env, jobject thiz, jlong handle, jshortArray frame, jint len) {
     if (handle == 0) {
-        LOGE("writeFrame: handle is 0, aborting write");
         return OPE_BAD_ARG;
     }
     if (frame == NULL || len <= 0) {
-        LOGE("writeFrame: Invalid frame or length");
         return OPE_BAD_ARG;
     }
 
     OpusRecorderContext *ctx = ctx_acquire(handle);
     if (ctx == NULL) {
-        LOGE("writeFrame: stale handle, aborting write");
         return OPE_BAD_ARG;
     }
 
@@ -152,7 +143,6 @@ JNIEXPORT jint JNICALL Java_uz_plugin_ogg_1record_1player_OpusAudioRecorder_writ
     if (ctx->is_stopped || ctx->enc == NULL) {
         pthread_mutex_unlock(&ctx->lock);
         ctx_release(ctx);
-        LOGE("writeFrame: Encoder is stopped or NULL");
         return OPE_BAD_ARG;
     }
 
@@ -165,7 +155,6 @@ JNIEXPORT jint JNICALL Java_uz_plugin_ogg_1record_1player_OpusAudioRecorder_writ
     if (sampleBuffer == NULL) {
         pthread_mutex_unlock(&ctx->lock);
         ctx_release(ctx);
-        LOGE("writeFrame: sampleBuffer is NULL");
         return OPE_BAD_ARG;
     }
 
@@ -203,7 +192,6 @@ JNIEXPORT void JNICALL Java_uz_plugin_ogg_1record_1player_OpusAudioRecorder_stop
     }
     if (ctx == NULL) {
         pthread_mutex_unlock(&g_registry_lock);
-        LOGE("stopRecord: stale handle, nothing to stop");
         return;
     }
     while (ctx->refs > 0) {
@@ -217,9 +205,6 @@ JNIEXPORT void JNICALL Java_uz_plugin_ogg_1record_1player_OpusAudioRecorder_stop
         if (ctx->enc != NULL) {
             if (!ctx->write_failed && ctx->samples_written >= MIN_DRAIN_SAMPLES) {
                 ope_encoder_drain(ctx->enc);
-            } else {
-                LOGE("stopRecord: skipping drain (samples=%lld, write_failed=%d)",
-                     (long long) ctx->samples_written, ctx->write_failed);
             }
             ope_encoder_destroy(ctx->enc);
             ctx->enc = NULL;
@@ -233,7 +218,6 @@ JNIEXPORT void JNICALL Java_uz_plugin_ogg_1record_1player_OpusAudioRecorder_stop
 
     pthread_mutex_destroy(&ctx->lock);
     free(ctx);
-    LOGI("stopRecord: ope encoder destroy completed and context freed");
 }
 
 JNIEXPORT jbyteArray JNICALL Java_uz_plugin_ogg_1record_1player_OpusAudioRecorder_getWaveform2(JNIEnv *env, jobject thiz, jshortArray array, jint length) {

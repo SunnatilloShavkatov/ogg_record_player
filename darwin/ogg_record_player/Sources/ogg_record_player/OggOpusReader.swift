@@ -63,35 +63,38 @@ class OggOpusReader {
         free(memory)
     }
     
-    func pcmData(maxLength: Int32) throws -> Data {
-        guard let buffer = malloc(Int(maxLength)) else {
-            throw Error.memoryAllocation
-        }
-        defer {
-            free(buffer)
-        }
-        
-        let output = buffer.assumingMemoryBound(to: opus_int16.self)
-        let outputLength = maxLength / 2
-        var remainingOutputLength = outputLength
-        
-        var result: Int32 = 1
-        while (result == OP_HOLE || result > 0) && remainingOutputLength > 0 {
-            let position = output.advanced(by: Int(outputLength - remainingOutputLength))
-            result = op_read(file, position, remainingOutputLength, nil)
-            remainingOutputLength -= result
-        }
-        
-        if result < 0 {
+    func rewind() throws {
+        let result = op_pcm_seek(file, 0)
+        guard result == 0 else {
             throw Error.read(result)
-        } else {
-            let count = Int(outputLength - remainingOutputLength) * 2
-            if count == 0 {
+        }
+        didReachEnd = false
+    }
+
+    /// Writes 48 kHz interleaved stereo straight into an AudioQueue buffer.
+    /// A fixed channel count also supports chained streams whose channel count changes.
+    func readPCM(into buffer: UnsafeMutableRawPointer, byteCapacity: Int32) throws -> Int {
+        let output = buffer.assumingMemoryBound(to: opus_int16.self)
+        let capacity = byteCapacity / 2
+        var written: Int32 = 0
+        var holes = 0
+        while capacity - written >= 2 && !didReachEnd {
+            let frames = op_read_stereo(file, output.advanced(by: Int(written)), capacity - written)
+            if frames == OP_HOLE {
+                // A discontinuity consumes no output space. Never subtract its negative
+                // error code from the remaining capacity (which could overflow the buffer).
+                holes += 1
+                guard holes <= 16 else { throw Error.read(frames) }
+                continue
+            }
+            guard frames >= 0 else { throw Error.read(frames) }
+            if frames == 0 {
                 didReachEnd = true
-                return Data()
             } else {
-                return Data(bytes: buffer, count: count)
+                written += frames * 2
+                holes = 0
             }
         }
+        return Int(written) * MemoryLayout<opus_int16>.size
     }
 }

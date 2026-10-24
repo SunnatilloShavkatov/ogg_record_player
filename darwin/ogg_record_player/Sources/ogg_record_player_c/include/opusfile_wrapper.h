@@ -14,6 +14,8 @@ OggOpusFile *op_open_file(const char *_path, int *_error);
 OggOpusFile *op_open_memory(const unsigned char *_data, size_t _size, int *_error);
 void op_free(OggOpusFile *_of);
 int op_read(OggOpusFile *_of, opus_int16 *_pcm, int _buf_size, int *_li);
+int op_read_stereo(OggOpusFile *_of, opus_int16 *_pcm, int _buf_size);
+int op_pcm_seek(OggOpusFile *_of, int64_t _pcm_offset);
 /* Total PCM sample count at 48 kHz. `_li` of -1 means the whole stream.
    Declared as int64_t; libopusfile's ogg_int64_t is int64_t on Apple platforms. */
 int64_t op_pcm_total(const OggOpusFile *_of, int _li);
