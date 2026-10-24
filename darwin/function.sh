@@ -18,12 +18,10 @@ DEVELOPER=$(xcode-select -print-path)
 # Minimum deployment target. Must match `s.platform = :ios, 'x'` in the podspec
 # and `platforms: [.iOS("x")]` in Package.swift.
 MINIOSVERSION="${MINIOSVERSION:-15.0}"
-MINMACOSVERSION="${MINMACOSVERSION:-11.0}"
 
 # Resolved from the installed Xcode instead of hardcoded, so the scripts keep
 # working across Xcode upgrades.
 IPHONEOS_SDKVERSION=$(xcrun --sdk iphoneos --show-sdk-version)
-MACOSX_SDKVERSION=$(xcrun --sdk macosx --show-sdk-version)
 
 cd "$(dirname \"$0\")"
 REPOROOT=$(pwd)
@@ -47,12 +45,7 @@ function build_library() {
   ARCH=$1
   PLATFORM=$2
 
-  if [ "${PLATFORM}" == "MacOSX" ]; then
-    SDKNAME="macosx"
-    SDKVERSION="${MACOSX_SDKVERSION}"
-    EXTRA_CFLAGS="-arch ${ARCH} -target ${ARCH}-apple-macos${MINMACOSVERSION}"
-    VERSION_FLAG="-mmacosx-version-min=${MINMACOSVERSION}"
-  elif [ "${PLATFORM}" == "iPhoneSimulator" ]; then
+  if [ "${PLATFORM}" == "iPhoneSimulator" ]; then
     SDKNAME="iphonesimulator"
     SDKVERSION="${IPHONEOS_SDKVERSION}"
     EXTRA_CFLAGS="-arch ${ARCH} -target ${ARCH}-apple-ios${MINIOSVERSION}-simulator"
@@ -79,14 +72,6 @@ function build_library() {
     if [ "${PLATFORM}" == "iPhoneSimulator" ]; then
       external_ldflags="${external_ldflags} -L${link_framework}/ios-arm64_x86_64-simulator"
       external_cflags="${external_cflags} -I${link_framework}/ios-arm64_x86_64-simulator/Headers"
-    elif [ "${PLATFORM}" == "MacOSX" ]; then
-      if [ -d "${link_framework}/macos-arm64_x86_64" ]; then
-        external_ldflags="${external_ldflags} -L${link_framework}/macos-arm64_x86_64"
-        external_cflags="${external_cflags} -I${link_framework}/macos-arm64_x86_64/Headers"
-      else
-        external_ldflags="${external_ldflags} -L${INTERDIR}/${PLATFORM}${SDKVERSION}-${ARCH}.sdk/lib"
-        external_cflags="${external_cflags} -I${INTERDIR}/${PLATFORM}${SDKVERSION}-${ARCH}.sdk/include"
-      fi
     else
       external_ldflags="${external_ldflags} -L${link_framework}/ios-arm64"
       external_cflags="${external_cflags} -I${link_framework}/ios-arm64/Headers"
@@ -115,8 +100,6 @@ function build_arch_library() {
   build_library "arm64" "iPhoneOS" "$1"
   build_library "arm64" "iPhoneSimulator" "$1"
   build_library "x86_64" "iPhoneSimulator" "$1"
-  build_library "arm64" "MacOSX" "$1"
-  build_library "x86_64" "MacOSX" "$1"
 }
 
 function cp_to_xc_framework() {
@@ -131,8 +114,6 @@ function cp_to_xc_framework() {
     lib_dir="${lib_dir}/ios-$lib_arch-simulator"
   elif [ "$lib_platform" == "iPhoneOS" ]; then
     lib_dir="${lib_dir}/ios-$lib_arch"
-  elif [ "$lib_platform" == "MacOSX" ]; then
-    lib_dir="${lib_dir}/macos-$lib_arch"
   fi
 
   mkdir -p "$lib_dir"
@@ -179,44 +160,14 @@ function collect_build_simulator_library() {
   fi
 }
 
-function collect_build_macos_library() {
-  local lib_name="$1"
-  OUTPUT_LIB="lib$lib_name.a"
-  PLATFORM="MacOSX"
-
-  INPUT_LIBS=""
-  for ARCH in "x86_64" "arm64"; do
-    INPUT_ARCH_LIB="${INTERDIR}/${PLATFORM}${MACOSX_SDKVERSION}-${ARCH}.sdk/lib/${OUTPUT_LIB}"
-    echo "INPUT_ARCH_LIB: ${INPUT_ARCH_LIB}"
-    if [ -e $INPUT_ARCH_LIB ]; then
-      INPUT_LIBS="${INPUT_LIBS} ${INPUT_ARCH_LIB}"
-    fi
-  done
-
-  echo "collect_build_macos_library $INPUT_LIBS"
-
-  # Combine the architectures into a universal library.
-  if [ -n "$INPUT_LIBS" ]; then
-    local lib_dir="${OUTPUTDIR}/Frameworks/lib${lib_name}.xcframework/macos-arm64_x86_64"
-    mkdir -p "${lib_dir}"
-    lipo -create $INPUT_LIBS \
-      -output "${lib_dir}/${OUTPUT_LIB}"
-  else
-    echo "$OUTPUT_LIB does not exist for macOS, skipping"
-  fi
-}
-
 function collect_build_library() {
   collect_build_ios_library $1
   collect_build_simulator_library $1
-  collect_build_macos_library $1
 
   local lib_dir="${OUTPUTDIR}/Frameworks/lib$1.xcframework"
   # Remove first: `cp -r src dst` nests into dst/Headers when dst already exists.
   rm -rf "${lib_dir}/ios-arm64_x86_64-simulator/Headers"
-  rm -rf "${lib_dir}/macos-arm64_x86_64/Headers"
   cp -r "${lib_dir}/ios-arm64/Headers" "${lib_dir}/ios-arm64_x86_64-simulator/Headers"
-  cp -r "${lib_dir}/ios-arm64/Headers" "${lib_dir}/macos-arm64_x86_64/Headers"
 
   generate_xc_framework_info_plist $1
 }
@@ -263,21 +214,6 @@ function generate_xc_framework_info_plist() {
 			</array>
 			<key>SupportedPlatform</key>
 			<string>ios</string>
-		</dict>
-		<dict>
-			<key>HeadersPath</key>
-			<string>Headers</string>
-			<key>LibraryIdentifier</key>
-			<string>macos-arm64_x86_64</string>
-			<key>LibraryPath</key>
-			<string>lib${lib_name}.a</string>
-			<key>SupportedArchitectures</key>
-			<array>
-				<string>arm64</string>
-				<string>x86_64</string>
-			</array>
-			<key>SupportedPlatform</key>
-			<string>macos</string>
 		</dict>
 	</array>
 	<key>CFBundlePackageType</key>

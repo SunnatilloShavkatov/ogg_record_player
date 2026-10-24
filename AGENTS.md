@@ -1,7 +1,7 @@
 # AGENTS.md
 
 ## What this repo is
-- Flutter federated plugin for **playback + recording** of Ogg Opus audio on **Android/iOS/macOS**.
+- Flutter federated plugin for **playback + recording** of Ogg Opus audio on **Android/iOS**.
 - Public API is tiny: `OggOpusPlayer`, `OggOpusRecorder`, `PlayerState` in `lib/src/player.dart` and `lib/src/player_state.dart`.
 - Dart side is a MethodChannel adapter, native platforms implement the actual audio stack.
 
@@ -26,25 +26,25 @@
 
 ## Platform implementation boundaries
 - Android playback uses Media3 ExoPlayer (`AudioPlayer.kt`); recording uses `AudioRecord` + JNI (`OpusAudioRecorder.kt` + `android/src/main/cpp/audio.c`).
-- iOS/macOS playback uses `AudioQueue` + `OggOpusReader` (`OggOpusPlayer.swift`, `OggOpusReader.swift`).
-- iOS/macOS recording uses `AudioUnit` (RemoteIO on iOS, HALOutput on macOS) + `OggOpusWriter` + custom `AudioSession` arbitration on iOS (`OggOpusRecorder.swift`, `darwin/ogg_record_player/Sources/ogg_record_player/AudioSession/*`).
+- iOS playback uses `AudioQueue` + `OggOpusReader` (`OggOpusPlayer.swift`, `OggOpusReader.swift`).
+- iOS recording uses `AudioUnit` (RemoteIO) + `OggOpusWriter` + custom `AudioSession` arbitration on iOS (`OggOpusRecorder.swift`, `darwin/ogg_record_player/Sources/ogg_record_player/AudioSession/*`).
 - Apple platforms use a unified `darwin/` directory with `sharedDarwinSource: true` in `pubspec.yaml`, supporting both CocoaPods (`darwin/ogg_record_player.podspec`) and Swift Package Manager (`darwin/ogg_record_player/Package.swift`).
-- Apple platforms ship prebuilt universal multi-platform xcframeworks (`libogg`, `libopus`, `libopusenc`, `libopusfile`) with slices for iOS device (arm64), iOS simulator (arm64 + x86_64), and macOS (arm64 + x86_64). Android links static opus/ogg libs through CMake (`android/src/main/cpp/CMakeLists.txt`).
+- Apple platforms ship prebuilt universal multi-platform xcframeworks (`libogg`, `libopus`, `libopusenc`, `libopusfile`) with slices for iOS device (arm64), iOS simulator (arm64 + x86_64). Android links static opus/ogg libs through CMake (`android/src/main/cpp/CMakeLists.txt`).
 
 ## Critical behavior to preserve
 - Dart player creation is async via `scheduleMicrotask`; state transitions depend on native callbacks (`lib/src/player_plugin_impl.dart`).
 - `currentPosition` is extrapolated from the last callback's position + playback rate, timed with a Dart `Stopwatch` reset on each `onPlayerStateChanged`, rather than polling native every frame.
 - Recorder `stop()` waits for `onRecorderFinished` / `onRecorderCanceled` (`_stopCompleter`) before data is readable.
-- Waveform shape differs by platform: Android returns packed 5-bit data from C (`getWaveform2`), iOS/macOS returns 100 intensity bytes from Swift.
-- `getDuration` returns duration in seconds matching Android/iOS/macOS.
+- Waveform shape differs by platform: Android returns packed 5-bit data from C (`getWaveform2`), iOS returns 100 intensity bytes from Swift.
+- `getDuration` returns duration in seconds matching Android and iOS.
 
 ## Developer workflows
-- **Do not build iOS/Android/macOS** (`flutter build ...`, `xcodebuild`, Gradle, `flutter run`) to verify changes. The maintainer builds and tests on devices themselves; stop after `flutter analyze` and report what still needs device testing.
+- **Do not build iOS/Android** (`flutter build ...`, `xcodebuild`, Gradle, `flutter run`) to verify changes. The maintainer builds and tests on devices themselves; stop after `flutter analyze` and report what still needs device testing.
 - Main local smoke test: run example app (`example/lib/main.dart`) and verify play, pause, speed toggle, record/stop.
 - Useful commands from repo root:
   - `flutter analyze`
   - `flutter test`
-  - `cd example && flutter run` (or `flutter run -d macos`)
+  - `cd example && flutter run`
 - Rebuild Apple vendored audio libs with `darwin/build-all.sh` (calls `build-libogg.sh`, `build-libopus*.sh`).
 
 ## Project-specific conventions / watch-outs

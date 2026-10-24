@@ -1,6 +1,6 @@
 # ogg_record_player
 
-A Flutter plugin for **playing** and **recording** Ogg Opus audio on Android, iOS and macOS.
+A Flutter plugin for **playing** and **recording** Ogg Opus audio on Android and iOS.
 
 - `OggOpusPlayer` — play and pause `.ogg` Opus files, with playback-rate control.
 - `OggOpusRecorder` — record the microphone straight into an `.ogg` Opus file, with duration and
@@ -10,7 +10,6 @@ A Flutter plugin for **playing** and **recording** Ogg Opus audio on Android, iO
 |----------|-----------|-----------------|
 | Android  | ✅        | minSdk 26       |
 | iOS      | ✅        | 15.0            |
-| macOS    | ✅        | 11.0            |
 
 Other platforms throw `UnsupportedError`.
 
@@ -32,22 +31,13 @@ dependencies:
 before calling `OggOpusRecorder.start()`** (for example with `permission_handler`).
 Without it `start()` throws an `OggOpusRecorderException` with code `PERMISSION_DENIED`.
 
-### iOS / macOS
+### iOS
 
 Add `NSMicrophoneUsageDescription` to your `Info.plist`:
 
 ```xml
 <key>NSMicrophoneUsageDescription</key>
 <string>This app uses your microphone to record voice messages.</string>
-```
-
-On macOS also enable the microphone in `DebugProfile.entitlements` and `Release.entitlements`:
-
-```xml
-<key>com.apple.security.device.microphone</key>
-<true/>
-<key>com.apple.security.device.audio-input</key>
-<true/>
 ```
 
 On iOS, configure the audio session (for example with `audio_session`) with the `playAndRecord`
@@ -95,14 +85,13 @@ await fromUrl.play(); // waits until the audio is ready
 `OggOpusPlayer.bytes` plays straight from memory: nothing is written to disk or cached. Use it when the
 backend returns the audio as binary.
 
-For `OggOpusPlayer.url`, Android, iOS and macOS follow the same flow: the file is downloaded once into the app's cache directory
+For `OggOpusPlayer.url`, Android and iOS follow the same flow: the file is downloaded once into the app's cache directory
 (`ogg_record_player/<sha256 of the URL>.ogg`), played from disk, and reused by later players for **7 days**.
 After that it is deleted (expired files are purged in the background when the plugin starts) and the next
 player downloads it again. Concurrent players for the same URL share one download.
 
 The plugin declares the Android `INTERNET` permission. Plain `http://` needs cleartext traffic allowed by
-your app (Android network security config, iOS App Transport Security). On macOS, a sandboxed app needs the
-`com.apple.security.network.client` entitlement.
+your app (Android network security config, iOS App Transport Security).
 
 ### Errors
 
@@ -141,7 +130,6 @@ Playback manages the platform's audio session itself, so no audio session packag
 - **iOS:** the player activates the audio session (`playback` category, `spokenAudio` mode) when playback starts and
   deactivates it when it pauses or ends, so other apps can resume. A phone call, a recording or another player
   starting pauses it. `play()` does nothing while a recording owns the session.
-- **macOS:** there is no audio session, so nothing changes.
 
 ### Recording
 
@@ -172,7 +160,7 @@ Notes:
 - If `start()` failed, `stop()` returns immediately and `duration()` is `0.0` with an empty waveform.
   `recorder.startError` holds the reason, so a failed start can be told apart from an empty recording.
 - `dispose()` while a recording is in progress cancels it and deletes the file on Android.
-- Waveform format differs per platform: Android returns 5-bit packed data, iOS/macOS return 100
+- Waveform format differs per platform: Android returns 5-bit packed data, iOS returns 100
   intensity bytes.
 
 ## How it works
@@ -180,7 +168,7 @@ Notes:
 |             | Playback                       | Recording                                                          |
 |-------------|--------------------------------|--------------------------------------------------------------------|
 | Android     | Media3 ExoPlayer               | `AudioRecord` → JNI → libopusenc (16 kHz mono, 16 kbps, max 3 min) |
-| iOS / macOS | `AudioQueue` + Ogg Opus reader | `AudioUnit` → libopusenc                                           |
+| iOS         | `AudioQueue` + Ogg Opus reader | `AudioUnit` → libopusenc                                           |
 
 Android links prebuilt static `libogg`, `libopus` and `libopusenc` from
 `android/src/main/cpp/opus/lib/<abi>/`. `libopusenc` is built from 0.2.1 with `-DNDEBUG`, because a

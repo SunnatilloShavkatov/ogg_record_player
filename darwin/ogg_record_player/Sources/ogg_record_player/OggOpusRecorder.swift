@@ -155,11 +155,7 @@ final class OggOpusRecorder {
 
   func stop() {
     processingQueue.async {
-      #if os(iOS)
-        let numberOfPackets = 0.1 / AVAudioSession.sharedInstance().ioBufferDuration
-      #elseif os(macOS)
-        let numberOfPackets = 0.1 / 0.005
-      #endif
+      let numberOfPackets = 0.1 / AVAudioSession.sharedInstance().ioBufferDuration
       self.stopAfterNumberOfPackets = Int(ceil(numberOfPackets))
     }
   }
@@ -217,11 +213,7 @@ final class OggOpusRecorder {
 
 extension OggOpusRecorder {
   private func startRecording() throws {
-    #if os(iOS)
-      let componentSubType = kAudioUnitSubType_RemoteIO
-    #elseif os(macOS)
-      let componentSubType = kAudioUnitSubType_HALOutput
-    #endif
+    let componentSubType = kAudioUnitSubType_RemoteIO
 
     var acd = AudioComponentDescription(
       componentType: kAudioUnitType_Output,
@@ -267,45 +259,7 @@ extension OggOpusRecorder {
       throw Error.disableOutput(result)
     }
 
-    #if os(macOS)
-      var deviceId: AudioDeviceID = AudioDeviceID()
-      var deviceIdRequest = AudioObjectPropertyAddress(
-        mSelector: kAudioHardwarePropertyDefaultInputDevice,
-        mScope: kAudioObjectPropertyScopeGlobal,
-        mElement: kAudioObjectPropertyElementMain
-      )
-      var deviceIdSize: UInt32 = UInt32(MemoryLayout<AudioDeviceID>.size)
-
-      result = AudioObjectGetPropertyData(
-        AudioObjectID(kAudioObjectSystemObject),
-        &deviceIdRequest,
-        0,
-        nil,
-        &deviceIdSize,
-        &deviceId
-      )
-      guard result == noErr else {
-        AudioComponentInstanceDispose(audioUnit)
-        throw Error.newAudioUnit(result)
-      }
-
-      result = AudioUnitSetProperty(
-        audioUnit,
-        kAudioOutputUnitProperty_CurrentDevice,
-        kAudioUnitScope_Global,
-        RemoteIOBus.output,
-        &deviceId,
-        UInt32(MemoryLayout<AudioDeviceID>.size)
-      )
-      guard result == noErr else {
-        AudioComponentInstanceDispose(audioUnit)
-        throw Error.newAudioUnit(result)
-      }
-
-      sampleRate = 48000
-    #elseif os(iOS)
-      sampleRate = 16000
-    #endif
+    sampleRate = 16000
     debugPrint("sampleRate: \(sampleRate)")
     let streamFormat = audioRecorderNativeStreamDescription(Float64(sampleRate))
     self.writer = try OggOpusWriter(path: path, inputSampleRate: sampleRate)

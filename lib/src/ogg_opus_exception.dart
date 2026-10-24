@@ -1,5 +1,5 @@
 /// Why an `OggOpusPlayer` could not be created; read it from `OggOpusPlayer.error` once `state` is
-/// `PlayerState.error`. [code] is one of the constants below, identical on Android, iOS and macOS.
+/// `PlayerState.error`. [code] is one of the constants below, identical on Android and iOS.
 class OggOpusPlayerException implements Exception {
   const new({required this.code, required this.message, this.details});
 

@@ -20,7 +20,7 @@ abstract class OggOpusPlayer {
   }
 
   /// Plays an `http`/`https` [url]. It is downloaded into the cache directory before the player becomes ready
-  /// and reused for 7 days, the same way on Android, iOS and macOS; [play] waits for the download.
+  /// and reused for 7 days, the same way on Android and iOS; [play] waits for the download.
   factory url(String url) {
     _ensureSupportedPlatform();
     assert(isRemoteAudioPath(url), 'url must be http or https: $url');
@@ -63,7 +63,7 @@ abstract class OggOpusPlayer {
 
 abstract class OggOpusRecorder {
   factory(String path) {
-    if (Platform.isIOS || Platform.isMacOS || Platform.isAndroid) {
+    if (Platform.isIOS || Platform.isAndroid) {
       return OggOpusRecorderPluginImpl(path);
     }
     throw UnsupportedError('Platform not supported');
@@ -95,7 +95,7 @@ abstract class OggOpusRecorder {
 }
 
 void _ensureSupportedPlatform() {
-  if (!(Platform.isIOS || Platform.isMacOS || Platform.isAndroid)) {
+  if (!(Platform.isIOS || Platform.isAndroid)) {
     throw UnsupportedError('Platform not supported');
   }
 }

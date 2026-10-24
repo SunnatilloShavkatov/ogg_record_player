@@ -19,10 +19,8 @@ An ogg opus file player and recorder for flutter.
   s.public_header_files = 'ogg_record_player/Sources/ogg_record_player_c/include/*.h'
 
   s.ios.dependency 'Flutter'
-  s.osx.dependency 'FlutterMacOS'
 
   s.ios.deployment_target = '15.0'
-  s.osx.deployment_target = '11.0'
 
   s.vendored_frameworks = 'ogg_record_player/Frameworks/libogg.xcframework',
                           'ogg_record_player/Frameworks/libopus.xcframework',
