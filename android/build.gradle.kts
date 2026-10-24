@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "uz.plugin.ogg_record_player"
-version = "2.4.1"
+version = "2.4.2"
 
 buildscript {
     repositories {
@@ -33,12 +33,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-    }
-
-    packaging {
-        jniLibs {
-            useLegacyPackaging = true
-        }
     }
 
     sourceSets["main"].java.srcDirs("src/main/kotlin")

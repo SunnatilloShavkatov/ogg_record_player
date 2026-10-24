@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/services.dart';
-import 'package:ogg_record_player/src/log_message.dart';
 import 'package:ogg_record_player/src/ogg_opus_exception.dart';
 import 'package:ogg_record_player/src/ogg_record_player_platform_interface.dart';
 import 'package:ogg_record_player/src/platform_events.dart';
@@ -44,6 +43,9 @@ class MethodChannelOggRecordPlayer extends OggRecordPlayerPlatform {
   Future<int> createPlayerFromBytes(Uint8List bytes) => _createPlayer('createFromBytes', bytes);
 
   @override
+  Future<void> warmUp() => _invoke('warmUp', null);
+
+  @override
   Future<void> play(int playerId) => _invoke('play', playerId);
 
   @override
@@ -57,8 +59,7 @@ class MethodChannelOggRecordPlayer extends OggRecordPlayerPlatform {
     try {
       final num? seconds = await methodChannel.invokeMethod<num>('getDuration', playerId);
       return seconds?.toDouble();
-    } catch (e, s) {
-      logMessage('getDuration failed:', error: e, stackTrace: s);
+    } on Object {
       return null;
     }
   }
@@ -89,6 +90,7 @@ class MethodChannelOggRecordPlayer extends OggRecordPlayerPlatform {
   Future<void> destroyRecorder(int recorderId) => _invoke('destroyRecorder', recorderId);
 
   Future<int> _createPlayer(String method, Object source) async {
+    _setHandlerIfNeeded();
     try {
       final int? playerId = await methodChannel.invokeMethod<int>(method, source);
       if (playerId == null) {
@@ -102,12 +104,12 @@ class MethodChannelOggRecordPlayer extends OggRecordPlayerPlatform {
     }
   }
 
-  /// For calls whose failure leaves nothing to recover: logged, never thrown.
-  Future<void> _invoke(String method, Object arguments) async {
+  /// For calls whose failure leaves nothing to recover: ignored, never thrown.
+  Future<void> _invoke(String method, Object? arguments) async {
     try {
       await methodChannel.invokeMethod<void>(method, arguments);
-    } catch (e, s) {
-      logMessage('$method failed:', error: e, stackTrace: s);
+    } on Object {
+      // Nothing to recover.
     }
   }
 
@@ -164,8 +166,8 @@ class MethodChannelOggRecordPlayer extends OggRecordPlayerPlatform {
         default:
           break;
       }
-    } catch (e, s) {
-      logMessage('${call.method} payload could not be read:', error: e, stackTrace: s);
+    } on Object {
+      // Dropped: a bad payload must not fail the native call.
     }
   }
 }

@@ -32,11 +32,7 @@ class OpusAudioRecorder(
         var state: Int = STATE_NOT_INIT
 
         init {
-            try {
-                System.loadLibrary("ogg_record_player_plugin")
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+            runCatching { System.loadLibrary("ogg_record_player_plugin") }
         }
     }
 

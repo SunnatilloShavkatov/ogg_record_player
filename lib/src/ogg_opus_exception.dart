@@ -6,7 +6,7 @@ class OggOpusPlayerException implements Exception {
   /// The path was empty.
   static const String invalidArgument = 'INVALID_ARGUMENT';
 
-  /// The local file (or the cached download) does not exist.
+  /// The local file does not exist.
   static const String fileNotFound = 'FILE_NOT_FOUND';
 
   /// The download failed: no connection, timeout, TLS or DNS failure.
@@ -18,7 +18,7 @@ class OggOpusPlayerException implements Exception {
   /// The file is not a playable Ogg Opus stream.
   static const String invalidFile = 'INVALID_FILE';
 
-  /// The download could not be written to the cache.
+  /// Audio data could not be read because of an I/O error.
   static const String ioError = 'IO_ERROR';
 
   /// Anything else, including a missing native implementation.

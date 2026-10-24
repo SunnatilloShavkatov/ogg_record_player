@@ -51,6 +51,9 @@ app.*.map.json
 /example/android/build/reports/problems/
 /.vscode/
 
+# SwiftPM build cache (.pubignore replaces .gitignore for pub)
+**/.build/
+
 # Keep the example app out of the published archive
 /example/
 

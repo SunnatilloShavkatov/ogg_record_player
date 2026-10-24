@@ -20,7 +20,7 @@ dependencies:
   ogg_record_player:
     git:
       url: https://github.com/SunnatilloShavkatov/ogg_record_player.git
-      ref: 2.4.1
+      ref: 2.4.2
 ```
 
 ## Platform setup
@@ -82,13 +82,26 @@ await fromUrl.play(); // waits until the audio is ready
 
 `OggOpusPlayer(path)` still works and picks `url` or `file` from the scheme.
 
+### Warm-up
+
+The first player in a process pays a one-time native setup (about 100 ms on iOS). Call `warmUp()` ahead of
+time, e.g. when a screen with audio opens, so the first `play()` starts without that delay:
+
+```dart
+unawaited(OggOpusPlayer.warmUp());
+```
+
+It is optional and cheap to repeat. It never activates the audio session or requests audio focus, so other
+apps' audio keeps playing.
+
 `OggOpusPlayer.bytes` plays straight from memory: nothing is written to disk or cached. Use it when the
 backend returns the audio as binary.
 
-For `OggOpusPlayer.url`, Android and iOS follow the same flow: the file is downloaded once into the app's cache directory
-(`ogg_record_player/<sha256 of the URL>.ogg`), played from disk, and reused by later players for **7 days**.
-After that it is deleted (expired files are purged in the background when the plugin starts) and the next
-player downloads it again. Concurrent players for the same URL share one download.
+For `OggOpusPlayer.url`, Android and iOS download the audio into memory for each new player and play it
+without writing a file. Downloads are never cached or shared between players, and HTTP caching is disabled.
+Pass the current URL when creating a player, including a fresh signed URL when the previous one expires.
+Replaying an existing player uses its already loaded audio. The full encoded audio stays in memory until
+the player is disposed.
 
 The plugin declares the Android `INTERNET` permission. Plain `http://` needs cleartext traffic allowed by
 your app (Android network security config, iOS App Transport Security).
@@ -105,7 +118,7 @@ When a player cannot be created, `state` becomes `PlayerState.error` and `error`
 | `NETWORK_ERROR`   | No connection, timeout, TLS or DNS failure                   |
 | `HTTP_ERROR`      | The server answered with a non-2xx status                    |
 | `INVALID_FILE`    | File, download or bytes are not an Ogg Opus stream           |
-| `IO_ERROR`        | The download could not be written to the cache               |
+| `IO_ERROR`        | Audio data could not be read because of an I/O error         |
 | `UNKNOWN`         | Anything else                                                |
 
 ```dart

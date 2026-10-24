@@ -37,8 +37,8 @@ abstract class OggRecordPlayerPlatform extends PlatformInterface {
     throw UnimplementedError('createPlayerFromFile() has not been implemented.');
   }
 
-  /// Downloads [url] (`http`/`https`) into the cache, reusing a download younger than 7 days, and returns the
-  /// player id. Throws `OggOpusPlayerException`.
+  /// Downloads [url] (`http`/`https`) into memory without caching or reusing earlier downloads and returns
+  /// the player id. Throws `OggOpusPlayerException`.
   Future<int> createPlayerFromUrl(String url) {
     throw UnimplementedError('createPlayerFromUrl() has not been implemented.');
   }
@@ -47,6 +47,11 @@ abstract class OggRecordPlayerPlatform extends PlatformInterface {
   /// Throws `OggOpusPlayerException`.
   Future<int> createPlayerFromBytes(Uint8List bytes) {
     throw UnimplementedError('createPlayerFromBytes() has not been implemented.');
+  }
+
+  /// Prepares the native playback stack without creating a player or activating the audio session.
+  Future<void> warmUp() {
+    throw UnimplementedError('warmUp() has not been implemented.');
   }
 
   Future<void> play(int playerId) {

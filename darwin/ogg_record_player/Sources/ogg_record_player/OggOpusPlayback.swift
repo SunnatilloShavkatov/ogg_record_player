@@ -15,7 +15,14 @@ final class OggOpusPlayback {
   private var audioQueue: AudioQueueRef?
   private var buffers = [AudioQueueBufferRef]()
   // Three 120 ms buffers at 48 kHz, stereo, signed 16-bit PCM.
-  private let bufferByteCount: UInt32 = 48000 * 2 * 2 * 120 / 1000
+  private static let bufferByteCount: UInt32 = 48000 * 2 * 2 * 120 / 1000
+  private static let format = AudioStreamBasicDescription(
+    mSampleRate: 48000,
+    mFormatID: kAudioFormatLinearPCM,
+    mFormatFlags: kAudioFormatFlagIsSignedInteger | kAudioFormatFlagIsPacked,
+    mBytesPerPacket: 4, mFramesPerPacket: 1, mBytesPerFrame: 4,
+    mChannelsPerFrame: 2, mBitsPerChannel: 16, mReserved: 0
+  )
   private var acceptsBuffers = false
   private var primed = false
   private var queuedBufferCount = 0
@@ -31,13 +38,7 @@ final class OggOpusPlayback {
 
   init(reader: OggOpusReader) throws {
     self.reader = reader
-    var format = AudioStreamBasicDescription(
-      mSampleRate: 48000,
-      mFormatID: kAudioFormatLinearPCM,
-      mFormatFlags: kAudioFormatFlagIsSignedInteger | kAudioFormatFlagIsPacked,
-      mBytesPerPacket: 4, mFramesPerPacket: 1, mBytesPerFrame: 4,
-      mChannelsPerFrame: 2, mBitsPerChannel: 16, mReserved: 0
-    )
+    var format = Self.format
     let result = AudioQueueNewOutputWithDispatchQueue(&audioQueue, &format, 0, processingQueue) { [weak self] queue, buffer in
       self?.refill(queue: queue, buffer: buffer)
     }
@@ -46,7 +47,7 @@ final class OggOpusPlayback {
       try check(AudioQueueAddPropertyListener(queue, kAudioQueueProperty_IsRunning, playbackRunningChanged, context))
       for _ in 0..<3 {
         var buffer: AudioQueueBufferRef?
-        try check(AudioQueueAllocateBuffer(queue, bufferByteCount, &buffer))
+        try check(AudioQueueAllocateBuffer(queue, Self.bufferByteCount, &buffer))
         guard let buffer = buffer else { throw Error.audioQueue(kAudio_ParamError) }
         buffers.append(buffer)
       }
@@ -57,6 +58,22 @@ final class OggOpusPlayback {
       dispose()
       throw error
     }
+  }
+
+  /// Pays AudioQueue's one-time setup (audio server connection, PCM output and time-pitch unit) on a
+  /// throwaway queue with the same format, so the first real player starts warm. Never starts the queue
+  /// or touches the audio session. Call it off the main thread: a cold setup takes about 100 ms.
+  static func warmUp() {
+    var format = Self.format
+    var audioQueue: AudioQueueRef?
+    let result = AudioQueueNewOutputWithDispatchQueue(&audioQueue, &format, 0, DispatchQueue.global(qos: .utility)) { _, _ in }
+    guard result == noErr, let queue = audioQueue else { return }
+    var buffer: AudioQueueBufferRef?
+    AudioQueueAllocateBuffer(queue, bufferByteCount, &buffer)
+    var enabled: UInt32 = 1
+    AudioQueueSetProperty(queue, kAudioQueueProperty_EnableTimePitch, &enabled, UInt32(MemoryLayout.size(ofValue: enabled)))
+    // Disposing also frees the buffer.
+    AudioQueueDispose(queue, true)
   }
 
   var position: Float64? {
@@ -111,7 +128,8 @@ final class OggOpusPlayback {
         DispatchQueue.main.async { completion(true) }
       } catch {
         self.acceptsBuffers = false
-        AudioQueueStop(queue, true)
+        // Asynchronous: a synchronous stop on the queue's own callback queue deadlocks.
+        AudioQueueStop(queue, false)
         DispatchQueue.main.async { completion(false) }
       }
     }
@@ -126,15 +144,20 @@ final class OggOpusPlayback {
     return position
   }
 
+  /// The synchronous AudioQueueStop waits for pending callbacks on processingQueue, so it runs
+  /// after the sync block: holding that queue while stopping froze the main thread.
   func stop(generation: Int) {
-    processingQueue.sync {
+    let queue: AudioQueueRef? = processingQueue.sync {
       self.generation = generation
       acceptsBuffers = false
       paused = true
       draining = false
       primed = false
       queuedBufferCount = 0
-      if let queue = audioQueue { AudioQueueStop(queue, true) }
+      return audioQueue
+    }
+    if let queue = queue {
+      AudioQueueStop(queue, true)
     }
   }
 
@@ -156,7 +179,7 @@ final class OggOpusPlayback {
   }
 
   private func enqueue(queue: AudioQueueRef, buffer: AudioQueueBufferRef) throws -> Bool {
-    let count = try reader.readPCM(into: buffer.pointee.mAudioData, byteCapacity: Int32(bufferByteCount))
+    let count = try reader.readPCM(into: buffer.pointee.mAudioData, byteCapacity: Int32(Self.bufferByteCount))
     guard count > 0 else { return false }
     buffer.pointee.mAudioDataByteSize = UInt32(count)
     try check(AudioQueueEnqueueBuffer(queue, buffer, 0, nil))

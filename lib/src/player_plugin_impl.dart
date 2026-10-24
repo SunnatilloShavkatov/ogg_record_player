@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:ogg_record_player/src/log_message.dart';
 import 'package:ogg_record_player/src/ogg_opus_exception.dart';
 import 'package:ogg_record_player/src/ogg_record_player_platform_interface.dart';
 import 'package:ogg_record_player/src/platform_events.dart';
@@ -45,8 +44,7 @@ final class OggRecordPlayerPluginImpl extends OggOpusPlayer {
         }
       } on OggOpusPlayerException catch (error) {
         _fail(error);
-      } on Exception catch (error, stacktrace) {
-        logMessage('create player failed:', error: error, stackTrace: stacktrace);
+      } on Exception catch (error) {
         _fail(OggOpusPlayerException(code: OggOpusPlayerException.unknown, message: error.toString()));
       }
       _createCompleter.complete();
@@ -138,7 +136,6 @@ final class OggRecordPlayerPluginImpl extends OggOpusPlayer {
   }
 
   void _fail(OggOpusPlayerException error) {
-    logMessage('create player failed:', error: error);
     _error = error;
     _playerState.value = PlayerState.error;
   }
@@ -171,8 +168,8 @@ final class OggOpusRecorderPluginImpl extends OggOpusRecorder {
         } else {
           _recorders[_id] = this;
         }
-      } on Exception catch (e, s) {
-        logMessage('create recorder failed:', error: e, stackTrace: s);
+      } on Exception {
+        // The recorder stays unusable: start() and stop() return early without an id.
       }
       _createCompleter.complete();
     });
@@ -253,7 +250,6 @@ final class OggOpusRecorderPluginImpl extends OggOpusRecorder {
   void _onEvent(RecorderEvent event) {
     switch (event) {
       case RecorderStartFailedEvent(:final String error):
-        logMessage('recorder start failed: $error');
         _startFailed = true;
         _startError = OggOpusRecorderException(code: OggOpusRecorderException.startFailed, message: error);
       case RecorderCanceledEvent():

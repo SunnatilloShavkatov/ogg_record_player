@@ -23,15 +23,15 @@ target_include_directories(ogg_record_player_plugin PRIVATE
 
 # Keep JNI entry points visible, but discard unused codec sections and prevent
 # static codec symbols from becoming roots in the shared library's export table.
+# -Os applies to the JNI glue only; the codec libs are prebuilt.
 target_compile_options(ogg_record_player_plugin PRIVATE
-        -ffunction-sections -fdata-sections -fvisibility=hidden)
+        -Os -ffunction-sections -fdata-sections -fvisibility=hidden)
 
 target_link_libraries(ogg_record_player_plugin
         android
         lib_opusenc
         lib_opus
-        lib_ogg
-        log)
+        lib_ogg)
 
 target_link_options(ogg_record_player_plugin PRIVATE
         "-Wl,--gc-sections"

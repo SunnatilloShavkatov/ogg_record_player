@@ -14,12 +14,13 @@
 
 ## Cross-platform channel contract
 - Channel name is fixed: `MethodChannel('ogg_record_player')`.
-- Dart → native methods: `createFromFile` (path), `createFromUrl` (http/https string), `createFromBytes` (`Uint8List`), `play`, `pause`, `stop`, `getDuration`, `setPlaybackSpeed`, `createRecorder`, `startRecord`, `stopRecord`, `destroyRecorder`.
+- Dart → native methods: `createFromFile` (path), `createFromUrl` (http/https string), `createFromBytes` (`Uint8List`), `play`, `pause`, `stop`, `getDuration`, `setPlaybackSpeed`, `warmUp`, `createRecorder`, `startRecord`, `stopRecord`, `destroyRecorder`.
 - Native → Dart callbacks: `onPlayerStateChanged`, `onRecorderCanceled`, `onRecorderStartFailed`, `onRecorderFinished`.
+- The plugin has no logging on any side (no `debugPrint`, `developer.log`, `NSLog`, `Log.*` or `__android_log_*`); don't add it back. Failures surface only as exceptions/error states.
 - Player/recorder instances are tracked by generated integer IDs on all sides (`_players`, `_recorders`, `playerDictionary`, `players`).
 
 ## Remote playback and errors
-- `createFromUrl` uses one flow on every platform: `RemoteAudioCache` (`RemoteAudioCache.swift` / `RemoteAudioCache.kt`) downloads to `<caches>/ogg_record_player/<sha256(url)>.ogg`, checks the `OggS` signature, reuses the file for 7 days and purges expired files when the plugin registers. Keep the two implementations in sync.
+- `createFromUrl` uses one flow on every platform: `RemoteAudioLoader` (`RemoteAudioLoader.swift` / `RemoteAudioLoader.kt`) downloads fresh bytes for each new player, checks the `OggS` signature and plays from memory through the same path as `createFromBytes`. Never cache downloads on disk, reuse them across players or enable HTTP caching; URLs can be expiring S3 signed URLs. Keep the two implementations in sync.
 - `createFromBytes` never touches disk: Darwin decodes with `op_open_memory` (`OggOpusReader(data:)`), Android plays through Media3 `ByteArrayDataSource` (`bytesMediaSource`). Both reject input without the `OggS` signature as `INVALID_FILE`.
 - `createFrom*` failures use the same codes on both sides (`PlayerError` in Swift and Kotlin): `INVALID_ARGUMENT`, `FILE_NOT_FOUND`, `NETWORK_ERROR`, `HTTP_ERROR`, `INVALID_FILE`, `IO_ERROR`, `UNKNOWN`. Dart maps them to `OggOpusPlayerException`; recorder failures map to `OggOpusRecorderException`.
 - Dart layering: `OggRecordPlayerPlatform` (platform interface) → `MethodChannelOggRecordPlayer` (only place touching the channel, converts `PlatformException`) → `player_plugin_impl.dart` (public classes, one event subscription routed by id).
@@ -27,6 +28,7 @@
 ## Platform implementation boundaries
 - Android playback uses Media3 ExoPlayer (`AudioPlayer.kt`); recording uses `AudioRecord` + JNI (`OpusAudioRecorder.kt` + `android/src/main/cpp/audio.c`).
 - iOS playback uses `AudioQueue` + `OggOpusReader` (`OggOpusPlayer.swift`, `OggOpusReader.swift`).
+- `OggOpusPlayback` buffer state stays on `processingQueue`, but synchronous `AudioQueueStop`/`AudioQueueDispose` must run outside that callback queue. Stops from inside the callback queue must be asynchronous to avoid blocking callbacks and freezing the UI.
 - iOS recording uses `AudioUnit` (RemoteIO) + `OggOpusWriter` + custom `AudioSession` arbitration on iOS (`OggOpusRecorder.swift`, `darwin/ogg_record_player/Sources/ogg_record_player/AudioSession/*`).
 - Apple platforms use a unified `darwin/` directory with `sharedDarwinSource: true` in `pubspec.yaml`, supporting both CocoaPods (`darwin/ogg_record_player.podspec`) and Swift Package Manager (`darwin/ogg_record_player/Package.swift`).
 - Apple platforms ship prebuilt universal multi-platform xcframeworks (`libogg`, `libopus`, `libopusenc`, `libopusfile`) with slices for iOS device (arm64), iOS simulator (arm64 + x86_64). Android links static opus/ogg libs through CMake (`android/src/main/cpp/CMakeLists.txt`).

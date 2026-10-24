@@ -2,8 +2,12 @@ package uz.plugin.ogg_record_player
 
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Handler
+import android.os.Looper
 import androidx.annotation.OptIn
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.mediacodec.MediaCodecUtil
 import androidx.media3.exoplayer.source.MediaSource
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.MethodCall
@@ -12,6 +16,7 @@ import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
 import java.io.File
 import java.util.Collections
+import kotlin.concurrent.thread
 
 /** OggRecordPlayerPlugin */
 class OggRecordPlayerPlugin : FlutterPlugin, MethodCallHandler {
@@ -33,6 +38,8 @@ class OggRecordPlayerPlugin : FlutterPlugin, MethodCallHandler {
     private var attached = false
     private var engineGeneration = 0
 
+    private val mainHandler = Handler(Looper.getMainLooper())
+
     private val players: MutableMap<Int, AudioPlayer> = Collections.synchronizedMap(mutableMapOf())
     private val recorders: MutableMap<Int, OpusAudioRecorder> = Collections.synchronizedMap(mutableMapOf())
 
@@ -42,7 +49,6 @@ class OggRecordPlayerPlugin : FlutterPlugin, MethodCallHandler {
         context = flutterPluginBinding.applicationContext
         channel = MethodChannel(flutterPluginBinding.binaryMessenger, "ogg_record_player")
         channel.setMethodCallHandler(this)
-        RemoteAudioCache.purgeExpiredFiles(context)
     }
 
     // Same checks as Darwin, so both platforms report a missing file the same way instead of an idle player.
@@ -57,13 +63,13 @@ class OggRecordPlayerPlugin : FlutterPlugin, MethodCallHandler {
 
     private fun createFromUrl(url: String, result: Result) {
         val requestGeneration = engineGeneration
-        RemoteAudioCache.localFile(context, url) { download ->
+        RemoteAudioLoader.load(url) { download ->
             if (!attached || engineGeneration != requestGeneration) {
                 result.fail(PlayerError.UNKNOWN, "Flutter engine detached before the download completed")
-                return@localFile
+                return@load
             }
             download.fold(
-                onSuccess = { file -> createFromFile(file.path, result) },
+                onSuccess = { bytes -> createFromBytes(bytes, result) },
                 onFailure = { error -> result.fail(PlayerError.from(error), error.localizedMessage) },
             )
         }
@@ -82,12 +88,22 @@ class OggRecordPlayerPlugin : FlutterPlugin, MethodCallHandler {
     private fun registerPlayer(result: Result, mediaSource: () -> MediaSource) {
         try {
             val id = generatePlayerId()
-            players[id] = AudioPlayer(context, mediaSource()) {
-                handlePlayerStateChanged(id, it)
-            }
+            players[id] = AudioPlayer(context, mediaSource()) { handlePlayerStateChanged(id, it) }
             result.success(id)
         } catch (e: Exception) {
             result.fail(PlayerError.from(e), e.localizedMessage)
+        }
+    }
+
+    /**
+     * A cold first player spends part of its setup on Media3 listing the device's Opus decoders. The list is cached
+     * process-wide, so querying it here off main lets the first real player skip it. Audio focus is untouched.
+     */
+    @OptIn(UnstableApi::class)
+    private fun warmUp(result: Result) {
+        thread(name = "ogg_record_player.warmUp", isDaemon = true) {
+            runCatching { MediaCodecUtil.getDecoderInfos(MimeTypes.AUDIO_OPUS, false, false) }
+            mainHandler.post { result.success(null) }
         }
     }
 
@@ -105,7 +121,7 @@ class OggRecordPlayerPlugin : FlutterPlugin, MethodCallHandler {
 
             "createFromUrl" -> {
                 val url = call.arguments as? String
-                if (url == null || !RemoteAudioCache.isRemote(url)) {
+                if (url == null || !RemoteAudioLoader.isRemote(url)) {
                     result.fail(PlayerError.INVALID_ARGUMENT, "url must be an http or https URL")
                     return
                 }
@@ -120,6 +136,8 @@ class OggRecordPlayerPlugin : FlutterPlugin, MethodCallHandler {
                 }
                 createFromBytes(bytes, result)
             }
+
+            "warmUp" -> warmUp(result)
 
             "play" -> {
                 (call.arguments as? Int)?.let {
@@ -161,8 +179,7 @@ class OggRecordPlayerPlugin : FlutterPlugin, MethodCallHandler {
 
             "stop" -> {
                 (call.arguments as? Int)?.let {
-                    players[it]?.destroy()
-                    players.remove(it)
+                    players.remove(it)?.destroy()
                 }
                 result.success(null)
             }

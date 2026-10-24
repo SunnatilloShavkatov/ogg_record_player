@@ -13,7 +13,7 @@ internal enum class PlayerError(val code: String, val message: String) {
     NETWORK_ERROR("NETWORK_ERROR", "Failed to download audio"),
     HTTP_ERROR("HTTP_ERROR", "Server rejected the audio request"),
     INVALID_FILE("INVALID_FILE", "File is not a playable Ogg Opus stream"),
-    IO_ERROR("IO_ERROR", "Failed to store downloaded audio"),
+    IO_ERROR("IO_ERROR", "Failed to read audio data"),
     UNKNOWN("UNKNOWN", "Failed to create player");
 
     companion object {

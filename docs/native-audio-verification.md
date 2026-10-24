@@ -4,8 +4,8 @@ The repository workflow prohibits local iOS/Android builds by the coding agent.
 Flutter tests cover the Dart channel/UI only; they do not exercise AudioQueue,
 MediaCodec, audio focus, phone calls or physical Bluetooth routes.
 
-Run these checks on a real iPhone and Android device before releasing 2.4.1.
-Use the example app, local files, cached URLs and in-memory bytes.
+Run these checks on a real iPhone and Android device before releasing 2.4.2.
+Use the example app, local files, remote URLs and in-memory bytes.
 
 | Scenario                                                     | Expected result                                                                                                |
 |--------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------|
@@ -23,6 +23,12 @@ Use the example app, local files, cached URLs and in-memory bytes.
 | Ogg page discontinuity/truncated payload                     | Bounded decode failure/stop, no invalid buffer offsets, infinite retry or crash.                               |
 | Start/stop a recording, then play it                         | Existing permission/recording lifecycle remains valid; recording pauses any plugin playback.                   |
 | Create/dispose players repeatedly, detach Flutter engine     | Audio stops; native queues, decoders and audio focus are released.                                             |
+| Create new players with the same URL, sequentially and concurrently | Each player makes its own download; no plugin audio cache files are created or reused.                    |
+| Replace a signed S3 URL after it expires                     | The new player fetches the supplied URL; expired URLs return `HTTP_ERROR` instead of cached audio.             |
+| URL returns non-Ogg bytes with HTTP 200, or HTTP 403/404       | Creation reports `INVALID_FILE` or `HTTP_ERROR`, respectively, on both platforms.                              |
+| Dispose while a URL is downloading, then create another player | Completed downloads do not leak a native player or prevent the next download.                               |
+| iOS: immediately dispose on completion and advance to the next clip repeatedly | UI stays responsive while the final AudioQueue callbacks drain.                               |
+| iOS: exercise an AudioQueue start failure                    | Failure returns without synchronously waiting on the callback queue.                                         |
 
 For iOS, check both CocoaPods and SwiftPM integration when the maintainer builds.
 AudioQueue allocation/refill, interruption ownership and final-buffer draining have

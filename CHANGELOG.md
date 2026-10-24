@@ -1,3 +1,16 @@
+## 2.4.2
+
+### Added
+- `OggOpusPlayer.warmUp()` pays the native playback setup ahead of the first player without activating the audio session: AudioQueue setup on iOS, the Opus decoder lookup on Android.
+
+### Fixed
+- **iOS:** Stop AudioQueue outside its callback queue and stop asynchronously on start failure to avoid blocking pending callbacks and freezing the UI.
+- **iOS:** Stop every player and cancel every recorder when the Flutter engine detaches, matching Android.
+
+### Changed
+- URL playback downloads fresh audio into memory for every new player on Android and iOS. Removed the 7-day disk cache and shared downloads, and disabled HTTP caching for expiring signed URLs.
+- Removed all plugin logging on Dart, iOS and Android, including Android's native `liblog` link.
+
 ## 2.4.1
 
 ### Fixed

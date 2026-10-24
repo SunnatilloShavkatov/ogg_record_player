@@ -54,6 +54,15 @@ void main() {
     expect(calls[2].arguments, bytes);
   });
 
+  test('warmUp calls the native method without arguments', () async {
+    mockNative((MethodCall call) async => null);
+
+    await platform.warmUp();
+
+    expect(calls.single.method, 'warmUp');
+    expect(calls.single.arguments, isNull);
+  });
+
   test('player creation maps native errors to OggOpusPlayerException', () async {
     mockNative(
       (MethodCall call) =>

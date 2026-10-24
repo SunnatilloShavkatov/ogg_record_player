@@ -25,7 +25,7 @@ import java.io.File
 
 typealias OnPlayerStatusChangedCallback = (AudioPlayer) -> Unit
 
-/** Plays a local file (also used for cached downloads). */
+/** Plays a local file. */
 @UnstableApi
 internal fun fileMediaSource(path: String): MediaSource =
     ProgressiveMediaSource.Factory(FileDataSource.Factory(), oggExtractorsFactory())

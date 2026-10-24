@@ -1,3 +1,4 @@
+import AVFoundation
 import Flutter
 import UIKit
 
@@ -13,7 +14,6 @@ public class OggRecordPlayerPlugin: NSObject, FlutterPlugin {
     let channel = FlutterMethodChannel(name: "ogg_record_player", binaryMessenger: messenger)
     let instance = OggRecordPlayerPlugin(channel: channel)
     registrar.addMethodCallDelegate(instance, channel: channel)
-    RemoteAudioCache.shared.purgeExpiredFiles()
   }
 
   let channel: FlutterMethodChannel
@@ -21,6 +21,14 @@ public class OggRecordPlayerPlugin: NSObject, FlutterPlugin {
   public init(channel: FlutterMethodChannel) {
     self.channel = channel
     super.init()
+  }
+
+  /// Engine teardown (app closed or Flutter engine destroyed): free every native player and recorder.
+  public func detachFromEngine(for registrar: FlutterPluginRegistrar) {
+    playerDictionary.values.forEach { $0.stop() }
+    playerDictionary.removeAll()
+    recorderDictionary.values.forEach { $0.cancel(for: .userInitiated) }
+    recorderDictionary.removeAll()
   }
 
   private func handlePlayerStateChanged(id: Int, _ player: OggOpusPlayer) {
@@ -34,8 +42,7 @@ public class OggRecordPlayerPlugin: NSObject, FlutterPlugin {
   }
 
   /// Registers a created player; `make` throws when the source cannot be opened.
-  private func registerPlayer(result: @escaping FlutterResult, onFailure: (() -> Void)? = nil,
-                              make: () throws -> OggOpusPlayer) {
+  private func registerPlayer(result: @escaping FlutterResult, make: () throws -> OggOpusPlayer) {
     do {
       let player = try make()
       let id = generatedPlayerId()
@@ -45,30 +52,42 @@ public class OggRecordPlayerPlugin: NSObject, FlutterPlugin {
       playerDictionary[id] = player
       result(id)
     } catch {
-      onFailure?()
       result(PlayerError.from(error).flutterError(details: error.localizedDescription))
     }
   }
 
-  private func createFromFile(path: String, result: @escaping FlutterResult, onFailure: (() -> Void)? = nil) {
+  private func createFromFile(path: String, result: @escaping FlutterResult) {
     guard FileManager.default.fileExists(atPath: path) else {
       result(PlayerError.fileNotFound.flutterError(details: path))
       return
     }
-    registerPlayer(result: result, onFailure: onFailure, make: { try OggOpusPlayer(path: path) })
+    registerPlayer(result: result, make: { try OggOpusPlayer(path: path) })
   }
 
   private func createFromUrl(_ url: URL, result: @escaping FlutterResult) {
-    RemoteAudioCache.shared.localFile(for: url) { download in
+    RemoteAudioLoader.shared.load(url) { download in
       switch download {
-      case let .success(file):
-        self.createFromFile(path: file.path, result: result) {
-          // Not a playable Ogg Opus file: don't keep it, so a later attempt downloads it again.
-          RemoteAudioCache.shared.removeCachedFile(for: url)
-        }
+      case let .success(data):
+        self.registerPlayer(result: result, make: { try OggOpusPlayer(data: data) })
       case let .failure(error):
         result(PlayerError.from(error).flutterError(details: error.localizedDescription))
       }
+    }
+  }
+
+  /// Cold setup runs off main. The session is only created and queried, never activated: activating it
+  /// here would interrupt other apps' audio.
+  private func warmUp(result: @escaping FlutterResult) {
+    #if os(iOS)
+    _ = AudioSession.shared
+    #endif
+    DispatchQueue.global(qos: .userInitiated).async {
+      #if os(iOS)
+      // Reading the route connects to the audio server without changing the session.
+      _ = AVAudioSession.sharedInstance().currentRoute
+      #endif
+      OggOpusPlayback.warmUp()
+      DispatchQueue.main.async { result(nil) }
     }
   }
 
@@ -81,7 +100,7 @@ public class OggRecordPlayerPlugin: NSObject, FlutterPlugin {
       }
       createFromFile(path: path, result: result)
     case "createFromUrl":
-      guard let string = call.arguments as? String, let url = URL(string: string), RemoteAudioCache.isRemote(url) else {
+      guard let string = call.arguments as? String, let url = URL(string: string), RemoteAudioLoader.isRemote(url) else {
         result(PlayerError.invalidArgument.flutterError(details: "url must be an http or https URL"))
         break
       }
@@ -96,6 +115,8 @@ public class OggRecordPlayerPlugin: NSObject, FlutterPlugin {
         break
       }
       registerPlayer(result: result, make: { try OggOpusPlayer(data: bytes) })
+    case "warmUp":
+      warmUp(result: result)
     case "play":
       if let playerId = call.arguments as? Int {
         playerDictionary[playerId]?.play()
@@ -182,14 +203,14 @@ enum PlayerError: String {
     case .networkError: return "Failed to download audio"
     case .httpError: return "Server rejected the audio request"
     case .invalidFile: return "File is not a playable Ogg Opus stream"
-    case .ioError: return "Failed to store downloaded audio"
+    case .ioError: return "Failed to read audio data"
     case .unknown: return "Failed to create player"
     }
   }
 
   static func from(_ error: Error) -> PlayerError {
     switch error {
-    case let error as RemoteAudioCache.Error:
+    case let error as RemoteAudioLoader.Error:
       switch error {
       case .httpStatus: return .httpError
       case .invalidFile: return .invalidFile

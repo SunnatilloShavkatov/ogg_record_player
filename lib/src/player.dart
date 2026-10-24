@@ -19,8 +19,8 @@ abstract class OggOpusPlayer {
     return OggRecordPlayerPluginImpl((OggRecordPlayerPlatform platform) => platform.createPlayerFromFile(file.path));
   }
 
-  /// Plays an `http`/`https` [url]. It is downloaded into the cache directory before the player becomes ready
-  /// and reused for 7 days, the same way on Android and iOS; [play] waits for the download.
+  /// Plays an `http`/`https` [url]. Each new player downloads the audio into memory without caching it,
+  /// the same way on Android and iOS; [play] waits for the download.
   factory url(String url) {
     _ensureSupportedPlatform();
     assert(isRemoteAudioPath(url), 'url must be http or https: $url');
@@ -35,6 +35,15 @@ abstract class OggOpusPlayer {
   }
 
   new create();
+
+  /// Pays the native audio stack's one-time setup before the first player is created, so that player starts
+  /// without the cold-start delay (about 100 ms on iOS). Optional and cheap to repeat; call it e.g. when a
+  /// screen with audio opens. It never activates the audio session, so other apps' audio keeps playing.
+  static Future<void> warmUp() async {
+    if (Platform.isIOS || Platform.isAndroid) {
+      await OggRecordPlayerPlatform.instance.warmUp();
+    }
+  }
 
   Future<void> pause();
 
