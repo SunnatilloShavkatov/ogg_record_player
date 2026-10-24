@@ -50,3 +50,10 @@ app.*.map.json
 /example/android/.kotlin/sessions/
 /example/android/build/reports/problems/
 /.vscode/
+
+# Keep the example app out of the published archive
+/example/
+
+# Claude Code project instructions (dev-only)
+/CLAUDE.md
+AGENTS.md
