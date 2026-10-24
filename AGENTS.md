@@ -36,7 +36,8 @@
 - `currentPosition` is extrapolated from the last callback's position + playback rate, timed with a Dart `Stopwatch` reset on each `onPlayerStateChanged`, rather than polling native every frame.
 - Recorder `stop()` waits for `onRecorderFinished` / `onRecorderCanceled` (`_stopCompleter`) before data is readable.
 - Waveform shape differs by platform: Android returns packed 5-bit data from C (`getWaveform2`), iOS returns 100 intensity bytes from Swift.
-- `getDuration` returns duration in seconds matching Android and iOS.
+- Audio durations and playback positions exposed through the public API or playback channel contract must use `double` seconds (Kotlin `Double`, Swift `Double`/`Float64`), preserving fractional seconds on both Android and iOS. `getDuration()` must return `Future<double?>` throughout Dart's public API, platform interface and MethodChannel adapter; never truncate it to `int`/`Int` or round it. Recorder finish metadata remains integer milliseconds internally and is converted to `double` seconds for the public recorder API.
+- `getDuration()` must return `null` when the player was not created or its duration is unavailable. Never substitute `0`/`0.0` for an unknown duration: callers must be able to distinguish missing metadata from a real zero-second duration.
 
 ## Developer workflows
 - **Do not build iOS/Android** (`flutter build ...`, `xcodebuild`, Gradle, `flutter run`) to verify changes. The maintainer builds and tests on devices themselves; stop after `flutter analyze` and report what still needs device testing.

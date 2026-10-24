@@ -48,12 +48,12 @@ class _PlayerControlsState extends State<PlayerControls> {
   Future<void> _loadDuration() async {
     final OggOpusPlayer player = widget.player;
     // iOS already knows the file length before the first playback callback.
-    final int? seconds = await player.getDuration();
+    final double? seconds = await player.getDuration();
     if (!mounted || widget.player != player) {
       return;
     }
     setState(() {
-      _duration = player.duration > 0 ? player.duration : (seconds ?? 0).toDouble();
+      _duration = player.duration > 0 ? player.duration : (seconds ?? 0.0);
       _position = player.currentPosition;
     });
   }

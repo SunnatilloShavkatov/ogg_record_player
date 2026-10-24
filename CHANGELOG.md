@@ -1,3 +1,11 @@
+## 2.4.1
+
+### Fixed
+- Preserve fractional seconds in `getDuration()` on Android and iOS, and return `null` when the player was not created or duration is unavailable.
+
+### Changed
+- **Breaking:** `getDuration()` returns `Future<double?>` instead of `Future<int?>`. Update callers and platform implementations to use `double?`.
+
 ## 2.4.0
 
 ### Fixed

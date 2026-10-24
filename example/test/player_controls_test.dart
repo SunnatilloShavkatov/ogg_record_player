@@ -102,7 +102,7 @@ class _TestPlatform extends OggRecordPlayerPlatform {
   Stream<RecorderEvent> get recorderEvents => const Stream<RecorderEvent>.empty();
 
   @override
-  Future<int?> getDuration(int playerId) async => 125;
+  Future<double?> getDuration(int playerId) async => 125.8;
 
   @override
   Future<void> disposePlayer(int playerId) async {}

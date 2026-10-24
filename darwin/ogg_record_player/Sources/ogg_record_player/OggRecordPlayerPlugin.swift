@@ -113,9 +113,9 @@ public class OggRecordPlayerPlugin: NSObject, FlutterPlugin {
       }
       result(nil)
     case "getDuration":
-      // Seconds, matching the Android implementation.
+      // Fractional seconds, matching the Android implementation.
       if let playerId = call.arguments as? Int, let player = playerDictionary[playerId] {
-        result(Int(player.duration))
+        result(player.duration)
       } else {
         result(nil)
       }

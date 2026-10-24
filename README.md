@@ -20,7 +20,7 @@ dependencies:
   ogg_record_player:
     git:
       url: https://github.com/SunnatilloShavkatov/ogg_record_player.git
-      ref: 2.4.0
+      ref: 2.4.1
 ```
 
 ## Platform setup
@@ -62,7 +62,7 @@ await player.setPlaybackRate(1.5); // 0.5 – 2.0
 await player.pause();
 
 print(player.currentPosition); // seconds
-print(await player.getDuration()); // seconds
+print(await player.getDuration()); // double? seconds, including fractional seconds
 
 await player.dispose();
 ```

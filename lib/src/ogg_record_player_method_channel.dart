@@ -53,9 +53,10 @@ class MethodChannelOggRecordPlayer extends OggRecordPlayerPlatform {
   Future<void> disposePlayer(int playerId) => _invoke('stop', playerId);
 
   @override
-  Future<int?> getDuration(int playerId) async {
+  Future<double?> getDuration(int playerId) async {
     try {
-      return await methodChannel.invokeMethod<int>('getDuration', playerId);
+      final num? seconds = await methodChannel.invokeMethod<num>('getDuration', playerId);
+      return seconds?.toDouble();
     } catch (e, s) {
       logMessage('getDuration failed:', error: e, stackTrace: s);
       return null;

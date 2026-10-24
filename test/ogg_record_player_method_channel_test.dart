@@ -96,6 +96,20 @@ void main() {
     expect(await platform.getDuration(1), isNull);
   });
 
+  test('getDuration preserves fractional seconds', () async {
+    mockNative((MethodCall call) async => 12.5);
+
+    expect(await platform.getDuration(3), 12.5);
+    expect(calls.single.method, 'getDuration');
+    expect(calls.single.arguments, 3);
+  });
+
+  test('getDuration normalizes whole seconds to double', () async {
+    mockNative((MethodCall call) async => 12);
+
+    expect(await platform.getDuration(3), isA<double>().having((double value) => value, 'seconds', 12.0));
+  });
+
   test('onPlayerStateChanged is delivered as a PlayerStateEvent', () async {
     final List<PlayerStateEvent> events = <PlayerStateEvent>[];
     platform.playerStateChanges.listen(events.add);

@@ -62,8 +62,8 @@ abstract class OggRecordPlayerPlatform extends PlatformInterface {
     throw UnimplementedError('disposePlayer() has not been implemented.');
   }
 
-  /// Seconds, or `null` when unknown.
-  Future<int?> getDuration(int playerId) {
+  /// Seconds, including fractional seconds, or `null` when unknown.
+  Future<double?> getDuration(int playerId) {
     throw UnimplementedError('getDuration() has not been implemented.');
   }
 

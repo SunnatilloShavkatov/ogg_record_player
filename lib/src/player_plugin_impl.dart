@@ -129,10 +129,10 @@ final class OggRecordPlayerPluginImpl extends OggOpusPlayer {
   }
 
   @override
-  Future<int?> getDuration() async {
+  Future<double?> getDuration() async {
     await _createCompleter.future;
     if (_playerId <= 0) {
-      return 0;
+      return null;
     }
     return _platform.getDuration(_playerId);
   }

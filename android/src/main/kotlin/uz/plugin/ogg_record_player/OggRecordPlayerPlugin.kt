@@ -143,7 +143,7 @@ class OggRecordPlayerPlugin : FlutterPlugin, MethodCallHandler {
                     }
 
                     is Int -> {
-                        result.success(players[call.arguments as Int]?.duration?.toInt())
+                        result.success(players[call.arguments as Int]?.duration)
                     }
 
                     else -> {

@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "uz.plugin.ogg_record_player"
-version = "2.4.0"
+version = "2.4.1"
 
 buildscript {
     repositories {

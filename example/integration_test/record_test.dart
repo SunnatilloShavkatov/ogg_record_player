@@ -33,7 +33,7 @@ void main() {
     final OggOpusPlayer player = OggOpusPlayer(path);
     await player.play();
     await Future<void>.delayed(const Duration(seconds: 1));
-    final int? playDuration = await player.getDuration();
+    final double? playDuration = await player.getDuration();
     log('ITEST play state=${player.state.value} pos=${player.currentPosition} dur=$playDuration');
     expect(player.state.value, PlayerState.playing);
     expect(playDuration, isNotNull);
