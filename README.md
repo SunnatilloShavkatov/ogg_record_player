@@ -20,7 +20,7 @@ dependencies:
   ogg_record_player:
     git:
       url: https://github.com/SunnatilloShavkatov/ogg_record_player.git
-      ref: 2.4.2
+      ref: 2.5.0
 ```
 
 ## Platform setup
@@ -162,7 +162,7 @@ release debug information and retain LTO and optimized codec hot paths. This tak
 rebuilds the vendored frameworks; the checked-in binaries have not been rebuilt as part of this change.
 
 Measure changes using matching release builds, architectures and app dependencies. Device checks are listed in
-[`docs/native-audio-verification.md`](docs/native-audio-verification.md).
+[`doc/native-audio-verification.md`](doc/native-audio-verification.md).
 
 ### Recording
 

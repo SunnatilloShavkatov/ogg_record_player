@@ -4,7 +4,7 @@ The repository workflow prohibits local iOS/Android builds by the coding agent.
 Flutter tests cover the Dart channel/UI only; they do not exercise AudioQueue,
 MediaCodec, audio focus, phone calls or physical Bluetooth routes.
 
-Run these checks on a real iPhone and Android device before releasing 2.4.2.
+Run these checks on a real iPhone and Android device before releasing 2.5.0.
 Use the example app, local files, remote URLs and in-memory bytes.
 
 | Scenario                                                     | Expected result                                                                                                |

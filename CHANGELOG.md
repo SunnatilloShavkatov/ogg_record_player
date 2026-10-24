@@ -1,4 +1,4 @@
-## 2.4.2
+## 2.5.0
 
 ### Added
 - `OggOpusPlayer.warmUp()` pays the native playback setup ahead of the first player without activating the audio session: AudioQueue setup on iOS, the Opus decoder lookup on Android.
@@ -10,6 +10,8 @@
 ### Changed
 - URL playback downloads fresh audio into memory for every new player on Android and iOS. Removed the 7-day disk cache and shared downloads, and disabled HTTP caching for expiring signed URLs.
 - Removed all plugin logging on Dart, iOS and Android, including Android's native `liblog` link.
+- **Android:** No longer forces `useLegacyPackaging` on host apps; native libraries follow the app's own packaging setting.
+- **Android:** Stripped debug info from the prebuilt opus/ogg static libraries (about 75% smaller package) and compile the JNI glue with `-Os`.
 
 ## 2.4.1
 
