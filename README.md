@@ -157,9 +157,8 @@ shrinking in the consuming app's release configuration to benefit; other plugins
 The native linker also discards unused codec sections and hides static codec exports while retaining JNI entry points.
 
 The iOS xcframeworks contain both device and simulator slices; their repository size is larger than the code
-linked into a device app. Keep dead code stripping enabled for release builds. The codec rebuild scripts omit
-release debug information and retain LTO and optimized codec hot paths. This takes effect after the maintainer
-rebuilds the vendored frameworks; the checked-in binaries have not been rebuilt as part of this change.
+linked into a device app. Keep dead code stripping enabled for release builds. The vendored codec archives
+contain optimized machine code without debug information (no LTO bitcode), so they link with any supported Xcode.
 
 Measure changes using matching release builds, architectures and app dependencies. Device checks are listed in
 [`doc/native-audio-verification.md`](doc/native-audio-verification.md).

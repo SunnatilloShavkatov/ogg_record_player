@@ -7,10 +7,11 @@ if [ "${DEBUG}" == "true" ]; then
   OPT_LDFLAGS=""
   OPT_CONFIG_ARGS="--enable-assertions --disable-asm"
 else
-  # Keep codec hot paths optimized, but do not ship embedded debug information
-  # in every device/simulator archive. LTO still removes unused codec routines.
-  OPT_CFLAGS="-O3 -flto -g0 -DNDEBUG"
-  OPT_LDFLAGS="-flto"
+  # Keep codec hot paths optimized. No -flto: LTO archives hold LLVM bitcode,
+  # which is ~4x larger, can't be stripped and fails to link on older Xcode.
+  # Debug info is removed with `strip -S` in collect_build_library.
+  OPT_CFLAGS="-O3 -g0 -DNDEBUG"
+  OPT_LDFLAGS=""
   OPT_CONFIG_ARGS=""
 fi
 
@@ -170,6 +171,10 @@ function collect_build_library() {
   # Remove first: `cp -r src dst` nests into dst/Headers when dst already exists.
   rm -rf "${lib_dir}/ios-arm64_x86_64-simulator/Headers"
   cp -r "${lib_dir}/ios-arm64/Headers" "${lib_dir}/ios-arm64_x86_64-simulator/Headers"
+
+  if [ "${DEBUG}" != "true" ]; then
+    xcrun strip -S "${lib_dir}"/*/lib$1.a
+  fi
 
   generate_xc_framework_info_plist $1
 }

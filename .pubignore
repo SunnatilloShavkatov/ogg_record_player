@@ -54,6 +54,9 @@ app.*.map.json
 # SwiftPM build cache (.pubignore replaces .gitignore for pub)
 **/.build/
 
+# Maintainer scripts that rebuild the vendored xcframeworks; consumers use the prebuilt ones
+/darwin/*.sh
+
 # Keep the example app out of the published archive
 /example/
 

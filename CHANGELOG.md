@@ -12,6 +12,7 @@
 - Removed all plugin logging on Dart, iOS and Android, including Android's native `liblog` link.
 - **Android:** No longer forces `useLegacyPackaging` on host apps; native libraries follow the app's own packaging setting.
 - **Android:** Stripped debug info from the prebuilt opus/ogg static libraries (about 75% smaller package) and compile the JNI glue with `-Os`.
+- **iOS:** Vendored codec xcframeworks now ship stripped machine code instead of LTO bitcode with debug info (about 75% smaller), so they no longer depend on the building Xcode's LLVM version. The Darwin build scripts drop `-flto` and run `strip -S`.
 
 ## 2.4.1
 
