@@ -1,10 +1,5 @@
-#if os(iOS)
 import Flutter
 import UIKit
-#elseif os(macOS)
-import FlutterMacOS
-import AppKit
-#endif
 
 // key -> playerId
 // value -> OggOpusPlayer
@@ -12,15 +7,11 @@ private var playerDictionary: [Int: OggOpusPlayer] = [:]
 
 private var recorderDictionary: [Int: OggOpusRecorder] = [:]
 
-public class OggOpusPlayerPlugin: NSObject, FlutterPlugin {
+public class OggRecordPlayerPlugin: NSObject, FlutterPlugin {
   public static func register(with registrar: FlutterPluginRegistrar) {
-    #if os(iOS)
     let messenger = registrar.messenger()
-    #elseif os(macOS)
-    let messenger = registrar.messenger
-    #endif
     let channel = FlutterMethodChannel(name: "ogg_record_player", binaryMessenger: messenger)
-    let instance = OggOpusPlayerPlugin(channel: channel)
+    let instance = OggRecordPlayerPlugin(channel: channel)
     registrar.addMethodCallDelegate(instance, channel: channel)
     RemoteAudioCache.shared.purgeExpiredFiles()
   }

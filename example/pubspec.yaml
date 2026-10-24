@@ -1,7 +1,7 @@
-name: ogg_opus_player_example
+name: ogg_record_player_example
 version: 1.0.0+1
 publish_to: "none"
-description: "Demonstrates how to use the ogg_opus_player plugin."
+description: "Demonstrates how to use the ogg_record_player plugin."
 
 environment:
   sdk: ">=3.13.0 <4.0.0"

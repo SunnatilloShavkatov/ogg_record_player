@@ -16,7 +16,7 @@ abstract class OggOpusPlayer {
   factory file(File file) {
     _ensureSupportedPlatform();
     assert(file.existsSync(), 'file not exists: ${file.path}');
-    return OggOpusPlayerPluginImpl((OggRecordPlayerPlatform platform) => platform.createPlayerFromFile(file.path));
+    return OggRecordPlayerPluginImpl((OggRecordPlayerPlatform platform) => platform.createPlayerFromFile(file.path));
   }
 
   /// Plays an `http`/`https` [url]. It is downloaded into the cache directory before the player becomes ready
@@ -24,14 +24,14 @@ abstract class OggOpusPlayer {
   factory url(String url) {
     _ensureSupportedPlatform();
     assert(isRemoteAudioPath(url), 'url must be http or https: $url');
-    return OggOpusPlayerPluginImpl((OggRecordPlayerPlatform platform) => platform.createPlayerFromUrl(url));
+    return OggRecordPlayerPluginImpl((OggRecordPlayerPlatform platform) => platform.createPlayerFromUrl(url));
   }
 
   /// Plays [bytes], a whole Ogg Opus stream (e.g. a backend response), straight from memory: nothing is written
   /// to disk and nothing is cached.
   factory bytes(Uint8List bytes) {
     _ensureSupportedPlatform();
-    return OggOpusPlayerPluginImpl((OggRecordPlayerPlatform platform) => platform.createPlayerFromBytes(bytes));
+    return OggRecordPlayerPluginImpl((OggRecordPlayerPlatform platform) => platform.createPlayerFromBytes(bytes));
   }
 
   new create();

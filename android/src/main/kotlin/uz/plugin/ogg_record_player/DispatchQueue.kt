@@ -1,4 +1,4 @@
-package uz.plugin.ogg_opus_player
+package uz.plugin.ogg_record_player
 
 import android.annotation.SuppressLint
 import android.os.Handler

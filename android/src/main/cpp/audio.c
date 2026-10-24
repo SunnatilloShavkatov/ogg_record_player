@@ -70,7 +70,7 @@ static inline void set_bits(uint8_t *bytes, int32_t bitOffset, int32_t value) {
     bytes[3] |= (uint8_t)((mask >> 24) & 0xFF);
 }
 
-JNIEXPORT jlong JNICALL Java_uz_plugin_ogg_1opus_1player_OpusAudioRecorder_startRecord(JNIEnv *env, jobject thiz, jstring path) {
+JNIEXPORT jlong JNICALL Java_uz_plugin_ogg_1record_1player_OpusAudioRecorder_startRecord(JNIEnv *env, jobject thiz, jstring path) {
     if (!path) {
         LOGE("startRecord: path is NULL");
         return 0;
@@ -132,7 +132,7 @@ JNIEXPORT jlong JNICALL Java_uz_plugin_ogg_1opus_1player_OpusAudioRecorder_start
     return (jlong) ctx->id;
 }
 
-JNIEXPORT jint JNICALL Java_uz_plugin_ogg_1opus_1player_OpusAudioRecorder_writeFrame(JNIEnv *env, jobject thiz, jlong handle, jshortArray frame, jint len) {
+JNIEXPORT jint JNICALL Java_uz_plugin_ogg_1record_1player_OpusAudioRecorder_writeFrame(JNIEnv *env, jobject thiz, jlong handle, jshortArray frame, jint len) {
     if (handle == 0) {
         LOGE("writeFrame: handle is 0, aborting write");
         return OPE_BAD_ARG;
@@ -182,7 +182,7 @@ JNIEXPORT jint JNICALL Java_uz_plugin_ogg_1opus_1player_OpusAudioRecorder_writeF
     return result;
 }
 
-JNIEXPORT void JNICALL Java_uz_plugin_ogg_1opus_1player_OpusAudioRecorder_stopRecord(JNIEnv *env, jobject thiz, jlong handle) {
+JNIEXPORT void JNICALL Java_uz_plugin_ogg_1record_1player_OpusAudioRecorder_stopRecord(JNIEnv *env, jobject thiz, jlong handle) {
     if (handle == 0) {
         return;
     }
@@ -236,7 +236,7 @@ JNIEXPORT void JNICALL Java_uz_plugin_ogg_1opus_1player_OpusAudioRecorder_stopRe
     LOGI("stopRecord: ope encoder destroy completed and context freed");
 }
 
-JNIEXPORT jbyteArray JNICALL Java_uz_plugin_ogg_1opus_1player_OpusAudioRecorder_getWaveform2(JNIEnv *env, jobject thiz, jshortArray array, jint length) {
+JNIEXPORT jbyteArray JNICALL Java_uz_plugin_ogg_1record_1player_OpusAudioRecorder_getWaveform2(JNIEnv *env, jobject thiz, jshortArray array, jint length) {
     if (array == NULL || length <= 0) {
         return NULL;
     }

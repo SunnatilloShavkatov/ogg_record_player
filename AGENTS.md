@@ -8,8 +8,8 @@
 ## Architecture (read in this order)
 1. `lib/src/player.dart` (factory selection and API contract)
 2. `lib/src/player_plugin_impl.dart` (channel protocol, id maps, event handling)
-3. `android/src/main/kotlin/uz/plugin/ogg_opus_player/OggOpusPlayerPlugin.kt`
-4. `darwin/ogg_record_player/Sources/ogg_record_player/OggOpusPlayerPlugin.swift`
+3. `android/src/main/kotlin/uz/plugin/ogg_record_player/OggRecordPlayerPlugin.kt`
+4. `darwin/ogg_record_player/Sources/ogg_record_player/OggRecordPlayerPlugin.swift`
 5. `example/lib/main.dart` (real usage patterns for session setup + lifecycle)
 
 ## Cross-platform channel contract

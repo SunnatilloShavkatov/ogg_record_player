@@ -21,11 +21,11 @@ flutter:
   plugin:
     platforms:
       ios:
-        pluginClass: OggOpusPlayerPlugin
+        pluginClass: OggRecordPlayerPlugin
         sharedDarwinSource: true
       macos:
-        pluginClass: OggOpusPlayerPlugin
+        pluginClass: OggRecordPlayerPlugin
         sharedDarwinSource: true
       android:
-        package: uz.plugin.ogg_opus_player
-        pluginClass: OggOpusPlayerPlugin
+        package: uz.plugin.ogg_record_player
+        pluginClass: OggRecordPlayerPlugin

@@ -8,7 +8,7 @@ import 'package:ogg_record_player/src/platform_events.dart';
 import 'package:ogg_record_player/src/player.dart';
 import 'package:ogg_record_player/src/player_state.dart';
 
-final Map<int, OggOpusPlayerPluginImpl> _players = <int, OggOpusPlayerPluginImpl>{};
+final Map<int, OggRecordPlayerPluginImpl> _players = <int, OggRecordPlayerPluginImpl>{};
 final Map<int, OggOpusRecorderPluginImpl> _recorders = <int, OggOpusRecorderPluginImpl>{};
 
 OggRecordPlayerPlatform get _platform => OggRecordPlayerPlatform.instance;
@@ -25,7 +25,7 @@ void _subscribeIfNeeded() {
   _platform.recorderEvents.listen((RecorderEvent event) => _recorders[event.recorderId]?._onEvent(event));
 }
 
-final class OggOpusPlayerPluginImpl extends OggOpusPlayer {
+final class OggRecordPlayerPluginImpl extends OggOpusPlayer {
   /// [_create] opens the source on the native side and returns the player id.
   new(this._create) : super.create() {
     _subscribeIfNeeded();

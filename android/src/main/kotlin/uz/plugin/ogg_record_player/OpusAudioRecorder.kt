@@ -1,6 +1,6 @@
 @file:Suppress("DEPRECATION")
 
-package uz.plugin.ogg_opus_player
+package uz.plugin.ogg_record_player
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -33,7 +33,7 @@ class OpusAudioRecorder(
 
         init {
             try {
-                System.loadLibrary("ogg_opus_player_plugin")
+                System.loadLibrary("ogg_record_player_plugin")
             } catch (e: Exception) {
                 e.printStackTrace()
             }

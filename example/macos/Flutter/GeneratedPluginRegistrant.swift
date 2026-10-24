@@ -10,5 +10,5 @@ import ogg_record_player
 
 func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
   AudioSessionPlugin.register(with: registry.registrar(forPlugin: "AudioSessionPlugin"))
-  OggOpusPlayerPlugin.register(with: registry.registrar(forPlugin: "OggOpusPlayerPlugin"))
+  OggRecordPlayerPlugin.register(with: registry.registrar(forPlugin: "OggRecordPlayerPlugin"))
 }

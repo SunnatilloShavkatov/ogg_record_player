@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.ogg_opus_player_example"
+    namespace = "com.example.ogg_record_player_example"
     ndkVersion = "28.2.13676358"
     compileSdk = 37
 
@@ -16,7 +16,7 @@ android {
     sourceSets["main"].java.srcDirs("src/main/kotlin")
 
     defaultConfig {
-        applicationId = "com.example.ogg_opus_player_example"
+        applicationId = "com.example.ogg_record_player_example"
         minSdk = 26
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

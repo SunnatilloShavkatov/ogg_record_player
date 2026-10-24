@@ -15,17 +15,17 @@ add_library(lib_opusenc STATIC IMPORTED)
 set_target_properties(lib_opusenc PROPERTIES IMPORTED_LOCATION
         ${distribution_OPUS_DIR}/lib/${ANDROID_ABI}/libopusenc.a)
 
-add_library(ogg_opus_player_plugin SHARED
+add_library(ogg_record_player_plugin SHARED
         audio.c)
 
-target_include_directories(ogg_opus_player_plugin PRIVATE
+target_include_directories(ogg_record_player_plugin PRIVATE
         ${distribution_OPUS_DIR}/include)
 
-target_link_libraries(ogg_opus_player_plugin
+target_link_libraries(ogg_record_player_plugin
         android
         lib_opusenc
         lib_opus
         lib_ogg
         log)
 
-target_link_options(ogg_opus_player_plugin PRIVATE "-Wl,-z,max-page-size=16384")
+target_link_options(ogg_record_player_plugin PRIVATE "-Wl,-z,max-page-size=16384")

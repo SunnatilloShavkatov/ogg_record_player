@@ -1,4 +1,4 @@
-package uz.plugin.ogg_opus_player
+package uz.plugin.ogg_record_player
 
 import android.content.Context
 import android.content.pm.PackageManager
@@ -13,8 +13,8 @@ import io.flutter.plugin.common.MethodChannel.Result
 import java.io.File
 import java.util.Collections
 
-/** OggOpusPlayerPlugin */
-class OggOpusPlayerPlugin : FlutterPlugin, MethodCallHandler {
+/** OggRecordPlayerPlugin */
+class OggRecordPlayerPlugin : FlutterPlugin, MethodCallHandler {
 
     companion object {
 

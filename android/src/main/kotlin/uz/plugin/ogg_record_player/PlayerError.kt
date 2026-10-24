@@ -1,4 +1,4 @@
-package uz.plugin.ogg_opus_player
+package uz.plugin.ogg_record_player
 
 import io.flutter.plugin.common.MethodChannel
 import java.io.IOException

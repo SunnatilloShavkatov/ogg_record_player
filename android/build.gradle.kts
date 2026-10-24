@@ -2,7 +2,7 @@ plugins {
     id("com.android.library")
 }
 
-group = "uz.plugin.ogg_opus_player"
+group = "uz.plugin.ogg_record_player"
 version = "2.3.0"
 
 buildscript {
@@ -23,7 +23,7 @@ allprojects {
 }
 
 android {
-    namespace = "uz.plugin.ogg_opus_player"
+    namespace = "uz.plugin.ogg_record_player"
     compileSdk = 36
 
     defaultConfig {

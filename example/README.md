@@ -1,6 +1,6 @@
-# ogg_opus_player_example
+# ogg_record_player_example
 
-Demonstrates how to use the ogg_opus_player plugin.
+Demonstrates how to use the ogg_record_player plugin.
 
 ## Getting Started
 
