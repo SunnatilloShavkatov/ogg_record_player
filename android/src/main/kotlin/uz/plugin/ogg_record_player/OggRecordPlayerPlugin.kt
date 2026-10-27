@@ -15,6 +15,7 @@ import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
 import java.io.File
+import java.io.IOException
 import java.util.Collections
 import kotlin.concurrent.thread
 
@@ -54,8 +55,20 @@ class OggRecordPlayerPlugin : FlutterPlugin, MethodCallHandler {
     // Same checks as Darwin, so both platforms report a missing file the same way instead of an idle player.
     @OptIn(UnstableApi::class)
     private fun createFromFile(path: String, result: Result) {
-        if (!File(path).isFile) {
+        val file = File(path)
+        if (!file.isFile) {
             result.fail(PlayerError.FILE_NOT_FOUND, path)
+            return
+        }
+        // Media3 would report a non-Ogg file only after the player exists; Darwin rejects it here too.
+        val isOgg = try {
+            file.hasOggSignature()
+        } catch (e: IOException) {
+            result.fail(PlayerError.IO_ERROR, e.localizedMessage)
+            return
+        }
+        if (!isOgg) {
+            result.fail(PlayerError.INVALID_FILE, "file is not an Ogg stream")
             return
         }
         registerPlayer(result) { fileMediaSource(path) }
@@ -155,18 +168,12 @@ class OggRecordPlayerPlugin : FlutterPlugin, MethodCallHandler {
             }
 
             "getDuration" -> {
-                when (call.arguments) {
-                    null -> {
-                        result.success(null)
-                    }
-
-                    is Int -> {
-                        result.success(players[call.arguments as Int]?.duration)
-                    }
-
-                    else -> {
-                        result.success(null)
-                    }
+                // Waits for the source to be prepared; null only when the duration is really unavailable.
+                val player = (call.arguments as? Int)?.let { players[it] }
+                if (player == null) {
+                    result.success(null)
+                } else {
+                    player.awaitDuration { result.success(it) }
                 }
             }
 
@@ -195,17 +202,31 @@ class OggRecordPlayerPlugin : FlutterPlugin, MethodCallHandler {
             }
 
             "createRecorder" -> {
-                val path = call.arguments as String
+                val path = call.arguments as? String
+                if (path.isNullOrEmpty()) {
+                    result.error("INVALID_ARGUMENT", "recorder path must be a non-empty string", null)
+                    return
+                }
                 val id = generatePlayerId()
                 val requestGeneration = engineGeneration
                 val recorder =
                     OpusAudioRecorder(context, File(path), object : OpusAudioRecorder.Callback {
-                        override fun onCancel() {
+                        override fun onCancel(reason: Int) {
                             if (!attached || engineGeneration != requestGeneration) return
                             channel.invokeMethod(
                                 "onRecorderCanceled", mapOf(
                                     "recorderId" to id,
-                                    "reason" to 0,
+                                    "reason" to reason,
+                                )
+                            )
+                        }
+
+                        override fun onStartFailed(message: String) {
+                            if (!attached || engineGeneration != requestGeneration) return
+                            channel.invokeMethod(
+                                "onRecorderStartFailed", mapOf(
+                                    "recorderId" to id,
+                                    "error" to message,
                                 )
                             )
                         }
@@ -274,6 +295,8 @@ class OggRecordPlayerPlugin : FlutterPlugin, MethodCallHandler {
                 "position" to player.position,
                 "duration" to player.duration,
                 "speed" to player.playbackRate,
+                // Set only when state is Failed, so Dart can tell why playback stopped.
+                "errorCode" to player.failure?.let { PlayerError.from(it).code },
             )
         )
     }

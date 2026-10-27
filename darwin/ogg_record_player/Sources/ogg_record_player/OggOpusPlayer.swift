@@ -16,7 +16,8 @@ final class OggOpusPlayer {
     didSet { onStatusChanged?(self) }
   }
 
-  let duration: Float64
+  /// Seconds, or `nil` when the stream does not report its length.
+  let duration: Float64?
   private let playback: OggOpusPlayback
   private var lastPosition: Float64 = 0
   private var wantsPlayback = false
@@ -26,7 +27,8 @@ final class OggOpusPlayer {
   var currentTime: Float64 {
     assert(Queue.main.isCurrent)
     if status != .stopped {
-      lastPosition = min(duration, max(0, playback.position ?? lastPosition))
+      let position = max(0, playback.position ?? lastPosition)
+      lastPosition = duration.map { min($0, position) } ?? position
     }
     return lastPosition
   }
@@ -52,7 +54,7 @@ final class OggOpusPlayer {
     playback = try OggOpusPlayback(reader: reader)
     playback.onFinished = { [weak self] generation, reachedEnd in
       guard let self = self, self.generation == generation, self.wantsPlayback else { return }
-      self.lastPosition = reachedEnd ? self.duration : (self.playback.position ?? self.lastPosition)
+      self.lastPosition = (reachedEnd ? self.duration : nil) ?? self.playback.position ?? self.lastPosition
       self.wantsPlayback = false
       self.resumeAfterInterruption = false
       self.status = .stopped

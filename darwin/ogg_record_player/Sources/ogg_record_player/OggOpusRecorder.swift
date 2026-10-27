@@ -137,6 +137,7 @@ final class OggOpusRecorder {
           self.delegate?.oggOpusRecorderDidStartRecording(self)
         }
       } catch {
+        self.discardFailedStart()
         #if os(iOS)
           try? AudioSession.shared.deactivate(client: self, notifyOthersOnDeactivation: true)
         #endif
@@ -255,7 +256,12 @@ extension OggOpusRecorder {
 
     sampleRate = 16000
     let streamFormat = audioRecorderNativeStreamDescription(Float64(sampleRate))
-    self.writer = try OggOpusWriter(path: path, inputSampleRate: sampleRate)
+    do {
+      self.writer = try OggOpusWriter(path: path, inputSampleRate: sampleRate)
+    } catch {
+      AudioComponentInstanceDispose(audioUnit)
+      throw error
+    }
 
     result = withUnsafePointer(to: streamFormat) { format -> OSStatus in
       AudioUnitSetProperty(
@@ -334,6 +340,15 @@ extension OggOpusRecorder {
 
     self.isRecording = true
     self.retainedSelf = retainedSelf
+  }
+
+  /// Releases what a failed `startRecording()` left behind: the encoder with its half-written file, and the
+  /// reference to the audio unit that every failing path has already disposed.
+  private func discardFailedStart() {
+    writer?.close()
+    writer = nil
+    audioUnit = nil
+    try? FileManager.default.removeItem(atPath: path)
   }
 
   private func stopRecording() {

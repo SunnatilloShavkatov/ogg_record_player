@@ -138,6 +138,34 @@ void main() {
     expect(events.single.speed, 1.5);
   });
 
+  test('a failed Android player arrives as the error state with its code', () async {
+    final List<PlayerStateEvent> events = <PlayerStateEvent>[];
+    platform.playerStateChanges.listen(events.add);
+
+    await sendFromNative('onPlayerStateChanged', <String, Object?>{
+      'playerId': 3,
+      'state': 4,
+      'position': 0.0,
+      'duration': 0.0,
+      'speed': 1.0,
+      'errorCode': OggOpusPlayerException.invalidFile,
+    });
+
+    expect(events.single.state, PlayerState.error);
+    expect(events.single.errorCode, OggOpusPlayerException.invalidFile);
+  });
+
+  test('onRecorderStartFailed is delivered with its reason', () async {
+    final List<RecorderEvent> events = <RecorderEvent>[];
+    platform.recorderEvents.listen(events.add);
+
+    await sendFromNative('onRecorderStartFailed', <String, Object>{'recorderId': 2, 'error': 'microphone busy'});
+
+    final RecorderStartFailedEvent failed = events.single as RecorderStartFailedEvent;
+    expect(failed.recorderId, 2);
+    expect(failed.error, 'microphone busy');
+  });
+
   test('a malformed callback is dropped without breaking later ones', () async {
     final List<RecorderEvent> events = <RecorderEvent>[];
     platform.recorderEvents.listen(events.add);

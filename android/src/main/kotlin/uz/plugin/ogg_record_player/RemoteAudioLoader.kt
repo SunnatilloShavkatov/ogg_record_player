@@ -2,7 +2,9 @@ package uz.plugin.ogg_record_player
 
 import android.os.Handler
 import android.os.Looper
+import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.LinkedBlockingQueue
@@ -15,10 +17,16 @@ class HttpStatusException(val statusCode: Int) : IOException("Download failed wi
 /** Thrown when a download is not an Ogg stream, e.g. an HTML error page served with a 200 status. */
 class InvalidAudioFileException : IOException("Downloaded file is not an Ogg stream")
 
+/** Thrown when a download exceeds [RemoteAudioLoader.MAX_BYTES], before it can exhaust memory. */
+class ResponseTooLargeException : IOException("Download is larger than ${RemoteAudioLoader.MAX_BYTES} bytes")
+
 /** Downloads a fresh Ogg stream into memory for every request, without storing or reusing it. */
 internal object RemoteAudioLoader {
 
     private const val TIMEOUT_MS = 30_000
+
+    /** Largest accepted download; the Darwin loader enforces the same limit. */
+    const val MAX_BYTES = 32 * 1024 * 1024
     private val mainHandler = Handler(Looper.getMainLooper())
 
     // Two workers at most; idle workers exit when there are no downloads.
@@ -52,13 +60,32 @@ internal object RemoteAudioLoader {
             if (status !in 200..299) {
                 throw HttpStatusException(status)
             }
-            val bytes = connection.inputStream.use { it.readBytes() }
+            if (connection.contentLengthLong > MAX_BYTES) {
+                throw ResponseTooLargeException()
+            }
+            val bytes = connection.inputStream.use { it.readBounded(MAX_BYTES) }
             if (!bytes.hasOggSignature()) {
                 throw InvalidAudioFileException()
             }
             return bytes
         } finally {
             connection.disconnect()
+        }
+    }
+
+    /** Like [InputStream.readBytes], but stops as soon as the stream passes [limit] bytes. */
+    private fun InputStream.readBounded(limit: Int): ByteArray {
+        val output = ByteArrayOutputStream()
+        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+        while (true) {
+            val count = read(buffer)
+            if (count < 0) {
+                return output.toByteArray()
+            }
+            if (output.size() + count > limit) {
+                throw ResponseTooLargeException()
+            }
+            output.write(buffer, 0, count)
         }
     }
 }

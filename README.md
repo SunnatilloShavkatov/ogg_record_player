@@ -20,7 +20,7 @@ dependencies:
   ogg_record_player:
     git:
       url: https://github.com/SunnatilloShavkatov/ogg_record_player.git
-      ref: 2.5.0
+      ref: 2.6.0
 ```
 
 ## Platform setup

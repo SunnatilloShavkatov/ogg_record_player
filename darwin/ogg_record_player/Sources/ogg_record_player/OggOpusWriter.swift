@@ -6,6 +6,11 @@ import ogg_record_player_c
 fileprivate let numberOfChannels: Int32 = 1;
 fileprivate let outputBitRate: Int32 = 16 * 1024;
 
+/// The prebuilt libopusenc is compiled with assertions on, and `ope_encoder_drain` asserts (abort) when the
+/// stream does not close cleanly. Drain only recordings that are long enough and error-free; anything else is
+/// destroyed without draining. Matches `MIN_DRAIN_SAMPLES` in Android's `audio.c`.
+fileprivate let minDrainSamples: Int64 = 4000
+
 class OggOpusWriter {
     
     enum Error: Swift.Error {
@@ -16,6 +21,9 @@ class OggOpusWriter {
     
     private let comments: OpaquePointer
     private let encoder: OpaquePointer
+    private var samplesWritten: Int64 = 0
+    private var writeFailed = false
+    private var isClosed = false
     
     init(path: String, inputSampleRate: Int32) throws {
         guard let comments = ope_comments_create() else {
@@ -51,12 +59,24 @@ class OggOpusWriter {
         assert(numberOfPCMSamples < Int32.max)
         pcmData.withUnsafeBytes { (buffer) -> Void in
             let pcm = buffer.bindMemory(to: opus_int16.self).baseAddress
-            ope_encoder_write(encoder, pcm, Int32(pcmData.count / 2))
+            let result = ope_encoder_write(encoder, pcm, Int32(numberOfPCMSamples))
+            if result == OPE_OK {
+                samplesWritten += Int64(numberOfPCMSamples)
+            } else {
+                writeFailed = true
+            }
         }
     }
     
+    /// Safe to call more than once.
     func close() {
-        ope_encoder_drain(encoder)
+        guard !isClosed else {
+            return
+        }
+        isClosed = true
+        if !writeFailed && samplesWritten >= minDrainSamples {
+            ope_encoder_drain(encoder)
+        }
         ope_encoder_destroy(encoder)
         ope_comments_destroy(comments)
     }

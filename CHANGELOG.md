@@ -1,3 +1,19 @@
+## 2.6.0
+
+### Fixed
+- `getDuration()` now returns `null` instead of `0` when the duration is unknown, on Android and iOS. On Android it waits for the source to be prepared, so it no longer answers too early.
+- **Android:** A missing or unwritable recording directory no longer crashes the app from the recorder thread; it surfaces as a start failure.
+- **Android:** `onRecorderStartFailed` is now sent, so `startError` is set when the microphone or the output file cannot be opened. A recording that dies because the microphone stops delivering audio now cancels instead of leaving `stop()` waiting.
+- **Android:** Local files that are not Ogg streams are rejected with `INVALID_FILE` when the player is created, like on iOS. Playback failures after creation now move the player to `PlayerState.error` with `error` set.
+- **iOS:** Recordings shorter than 250 ms (or with encoder write errors) are no longer drained, matching Android, which avoids a libopusenc assertion. A failed recorder start no longer leaks the encoder, its half-written file or the audio unit.
+- `OggOpusRecorder.start()` throws, and `startError` is set, when the native recorder could not be created.
+- Downloads larger than 32 MiB are rejected with `IO_ERROR` instead of exhausting memory.
+- `createRecorder` with an empty path fails with `INVALID_ARGUMENT` on both platforms (Android used to crash on a null path; iOS used code `"3"`).
+- **Android:** `onRecorderCanceled` reports a real `reason` (interruption or lost microphone) instead of always `0`. The waveform is built from a snapshot taken on the recording thread, and read buffers are reused instead of allocated on every read.
+
+### Added
+- `OggOpusRecorder.stop()` throws `OggOpusRecorderException` with code `STOP_TIMEOUT` if the native recorder never reports the finished file (10 seconds).
+
 ## 2.5.0
 
 ### Added

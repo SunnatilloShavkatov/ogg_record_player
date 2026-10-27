@@ -10,6 +10,7 @@ final class PlayerStateEvent {
     required this.position,
     required this.duration,
     required this.speed,
+    this.errorCode,
   });
 
   final int playerId;
@@ -21,6 +22,10 @@ final class PlayerStateEvent {
   /// Seconds.
   final double duration;
   final double speed;
+
+  /// Why playback failed, one of the `OggOpusPlayerException` codes. Set only when [state] is
+  /// [PlayerState.error].
+  final String? errorCode;
 }
 
 /// A native recorder finished, was cancelled or failed to start.

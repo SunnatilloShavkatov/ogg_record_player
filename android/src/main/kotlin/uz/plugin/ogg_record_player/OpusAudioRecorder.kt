@@ -12,6 +12,7 @@ import android.os.Looper
 import android.telephony.PhoneStateListener
 import android.telephony.TelephonyManager
 import java.io.File
+import java.util.concurrent.ConcurrentLinkedQueue
 
 class OpusAudioRecorder(
     ctx: Context,
@@ -27,6 +28,10 @@ class OpusAudioRecorder(
         const val STATE_RECORDING = 2
 
         private const val MAX_RECORD_DURATION = 60000 * 3
+
+        // Same values as Darwin's `OggOpusRecorder.CancelledReason`, which Dart receives as `reason`.
+        const val CANCEL_AUDIO_SESSION_INTERRUPTED = 0
+        const val CANCEL_BUFFER_FAILED = 2
 
         @Deprecated("Use instance state instead")
         var state: Int = STATE_NOT_INIT
@@ -48,9 +53,11 @@ class OpusAudioRecorder(
     )
 
     private val recordSamples = ShortArray(1024)
+
+    // Read buffers travel to the encoding thread; it hands them back here instead of leaving them to the GC.
+    private val bufferPool = ConcurrentLinkedQueue<ShortArray>()
     private var samplesCount = 0L
     private var recordTimeCount = 0L
-    private var sendAfterDone = false
     @Volatile
     private var callStop = false
     @Volatile
@@ -95,17 +102,17 @@ class OpusAudioRecorder(
 
     /**
      * Aborts a start that never reached STATE_RECORDING: marks the recorder dead,
-     * notifies the caller and releases the worker threads so they are not leaked.
-     * Must be called on recordQueue.
+     * reports [message] as a start failure (Dart's `startError`) and releases the
+     * worker threads so they are not leaked. Must be called on recordQueue.
      */
-    private fun failStart() {
+    private fun failStart(message: String) {
         callStop = true
         isStopping = true
         isStopped = true
         instanceState = STATE_IDLE
         unregisterPhoneStateListener()
         mainHandler.post {
-            callback?.onCancel()
+            callback?.onStartFailed(message)
         }
         shutdownQueues()
     }
@@ -127,7 +134,7 @@ class OpusAudioRecorder(
                     override fun onCallStateChanged(state: Int, incomingNumber: String?) {
                         if (state != TelephonyManager.CALL_STATE_IDLE) {
                             stopRecording(AudioEndStatus.CANCEL)
-                            callback?.onCancel()
+                            callback?.onCancel(CANCEL_AUDIO_SESSION_INTERRUPTED)
                         }
                     }
                 }
@@ -153,7 +160,7 @@ class OpusAudioRecorder(
         Runnable recordRunnable@{
             if (callStop || isStopping || isStopped) return@recordRunnable
             audioRecord?.let { audioRecord ->
-                val shortArray = ShortArray(recordBufferSize)
+                val shortArray = bufferPool.poll() ?: ShortArray(recordBufferSize)
                 val len = audioRecord.read(shortArray, 0, shortArray.size)
                 if (len > 0 && !callStop) {
                     var sum = 0
@@ -195,6 +202,7 @@ class OpusAudioRecorder(
                             val handle = nativeHandle
                             if (handle != 0L) {
                                 writeFrame(handle, shortArray, len)
+                                bufferPool.offer(shortArray)
                                 recordTimeCount += len / 16
 
                                 if (recordTimeCount >= MAX_RECORD_DURATION) {
@@ -208,13 +216,12 @@ class OpusAudioRecorder(
                     }
                 } else {
                     if (!callStop && !isStopping && !isStopped) {
-                        stopRecording(
-                            if (sendAfterDone) {
-                                AudioEndStatus.SEND
-                            } else {
-                                AudioEndStatus.CANCEL
-                            }
-                        )
+                        // The microphone stopped delivering audio (e.g. taken by another app). Nothing else
+                        // reports this, so Dart's stop() would wait for an event that never comes.
+                        stopRecording(AudioEndStatus.CANCEL)
+                        mainHandler.post {
+                            callback?.onCancel(CANCEL_BUFFER_FAILED)
+                        }
                     }
                 }
             }
@@ -227,15 +234,17 @@ class OpusAudioRecorder(
             return@Runnable
         }
 
-        if (recordingAudioFile.exists()) {
-            recordingAudioFile.delete()
-        }
-        recordingAudioFile.createNewFile()
         try {
+            // Inside the try: a missing or unwritable directory throws here, and an exception escaping
+            // this runnable would kill the app from the worker thread.
+            if (recordingAudioFile.exists()) {
+                recordingAudioFile.delete()
+            }
+            recordingAudioFile.createNewFile()
             val handle = startRecord(recordingAudioFile.absolutePath)
             if (handle == 0L) {
                 recordingAudioFile.delete()
-                failStart()
+                failStart("Could not open ${recordingAudioFile.name} for writing")
                 return@Runnable
             }
             nativeHandle = handle
@@ -255,7 +264,7 @@ class OpusAudioRecorder(
                 nativeHandle = 0L
                 if (h != 0L) stopRecord(h)
                 recordingAudioFile.delete()
-                failStart()
+                failStart("The microphone could not be initialized")
                 return@Runnable
             }
             callStop = false
@@ -270,7 +279,7 @@ class OpusAudioRecorder(
                 audioRecord?.release()
                 audioRecord = null
                 recordingAudioFile.delete()
-                failStart()
+                failStart("The microphone is in use by another app")
                 return@Runnable
             }
             instanceState = STATE_RECORDING
@@ -284,7 +293,7 @@ class OpusAudioRecorder(
                 audioRecord = null
             } catch (ignore: Exception) {
             }
-            failStart()
+            failStart(e.localizedMessage ?: "Recording could not be started")
             return@Runnable
         }
 
@@ -309,7 +318,6 @@ class OpusAudioRecorder(
                 return@Runnable
             }
             try {
-                sendAfterDone = endStatus == AudioEndStatus.SEND
                 if (audioRecord.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
                     audioRecord.stop()
                 }
@@ -333,6 +341,9 @@ class OpusAudioRecorder(
         unregisterPhoneStateListener()
         instanceState = STATE_IDLE
 
+        // recordSamples is written on recordQueue (where this runs), so read a snapshot on the other thread.
+        val waveformSamples = recordSamples.copyOf()
+
         // stopRecord() must run on fileEncodingQueue after all pending writeFrame
         // runnables, otherwise the native encoder is leaked and the file stays open.
         fileEncodingQueue.postRunnable(Runnable {
@@ -345,7 +356,7 @@ class OpusAudioRecorder(
                 recordingAudioFile.delete()
             } else {
                 val duration = recordTimeCount
-                val waveForm = getWaveform2(recordSamples, recordSamples.size)
+                val waveForm = getWaveform2(waveformSamples, waveformSamples.size)
                 mainHandler.post {
                     callback?.sendAudio(
                         recordingAudioFile,
@@ -365,7 +376,8 @@ class OpusAudioRecorder(
     private external fun getWaveform2(arr: ShortArray, len: Int): ByteArray
 
     interface Callback {
-        fun onCancel()
+        fun onCancel(reason: Int)
+        fun onStartFailed(message: String)
         fun sendAudio(file: File, duration: Long, waveForm: ByteArray)
     }
 }

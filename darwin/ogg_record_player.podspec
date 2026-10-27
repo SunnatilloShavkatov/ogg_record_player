@@ -4,7 +4,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'ogg_record_player'
-  s.version          = '2.5.0'
+  s.version          = '2.6.0'
   s.summary          = 'An ogg opus file player and recorder for flutter.'
   s.description      = <<-DESC
 An ogg opus file player and recorder for flutter.

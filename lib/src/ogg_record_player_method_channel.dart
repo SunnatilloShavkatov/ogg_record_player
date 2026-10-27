@@ -144,6 +144,7 @@ class MethodChannelOggRecordPlayer extends OggRecordPlayerPlatform {
               position: (args['position'] as num).toDouble(),
               duration: (args['duration'] as num? ?? 0).toDouble(),
               speed: (args['speed'] as num? ?? 1).toDouble(),
+              errorCode: args['errorCode'] as String?,
             ),
           );
         case 'onRecorderCanceled':
@@ -182,6 +183,8 @@ PlayerState _playerStateFromRaw(int state) {
       return PlayerState.paused;
     case 3:
       return PlayerState.ended;
+    case 4:
+      return PlayerState.error;
     default:
       assert(false, 'unknown state: $state');
       return PlayerState.error;

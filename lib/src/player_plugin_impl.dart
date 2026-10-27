@@ -144,6 +144,12 @@ final class OggRecordPlayerPluginImpl extends OggOpusPlayer {
     _position = event.position;
     _duration = event.duration;
     _playbackRate = event.speed;
+    if (event.state == PlayerState.error) {
+      _error = OggOpusPlayerException(
+        code: event.errorCode ?? OggOpusPlayerException.unknown,
+        message: 'Playback failed',
+      );
+    }
     _positionStopwatch
       ..reset()
       ..start();
@@ -168,12 +174,20 @@ final class OggOpusRecorderPluginImpl extends OggOpusRecorder {
         } else {
           _recorders[_id] = this;
         }
-      } on Exception {
-        // The recorder stays unusable: start() and stop() return early without an id.
+      } on Exception catch (error) {
+        // The recorder stays unusable: start() throws this, and stop() returns early without an id.
+        _startFailed = true;
+        _startError = error is OggOpusRecorderException
+            ? error
+            : OggOpusRecorderException(code: OggOpusRecorderException.unknown, message: error.toString());
       }
       _createCompleter.complete();
     });
   }
+
+  /// How long [stop] waits for the native recorder to report the finished file.
+  @visibleForTesting
+  static Duration stopTimeout = const Duration(seconds: 10);
 
   final String _path;
   int _id = -1;
@@ -192,7 +206,14 @@ final class OggOpusRecorderPluginImpl extends OggOpusRecorder {
   @override
   Future<void> start() async {
     await _createCompleter.future;
-    if (_id <= 0 || _disposed) {
+    if (_disposed) {
+      return;
+    }
+    if (_id <= 0) {
+      final OggOpusRecorderException? createError = _startError;
+      if (createError != null) {
+        throw createError;
+      }
       return;
     }
     _stopCompleter = Completer<void>();
@@ -225,7 +246,13 @@ final class OggOpusRecorderPluginImpl extends OggOpusRecorder {
       _safeCompleteStop();
       rethrow;
     }
-    await _stopCompleter?.future;
+    await _stopCompleter?.future.timeout(
+      stopTimeout,
+      onTimeout: () => throw const OggOpusRecorderException(
+        code: OggOpusRecorderException.stopTimeout,
+        message: 'The native recorder did not finish in time',
+      ),
+    );
   }
 
   @override

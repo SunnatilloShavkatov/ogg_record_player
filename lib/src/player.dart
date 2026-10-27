@@ -81,11 +81,14 @@ abstract class OggOpusRecorder {
   new create();
 
   /// Starts recording. Throws an [OggOpusRecorderException] if the platform rejects the request, e.g. with
-  /// code [OggOpusRecorderException.permissionDenied] when the microphone permission has not been granted.
+  /// code [OggOpusRecorderException.permissionDenied] when the microphone permission has not been granted, or
+  /// if the native recorder could not be created.
   Future<void> start();
 
   /// Stops recording. Returns immediately without a result when [start] failed;
-  /// check [startError] to tell that case apart from an empty recording.
+  /// check [startError] to tell that case apart from an empty recording. Throws an
+  /// [OggOpusRecorderException] with code [OggOpusRecorderException.stopTimeout] if the native recorder
+  /// never reports the finished file.
   Future<void> stop();
 
   Future<void> dispose();

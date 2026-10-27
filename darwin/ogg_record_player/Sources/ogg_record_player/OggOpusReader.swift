@@ -13,11 +13,12 @@ class OggOpusReader {
     
     private(set) var didReachEnd = false
 
-    /// Duration of the whole stream, in seconds. Opus always decodes at 48 kHz.
-    var duration: Float64 {
+    /// Duration of the whole stream, in seconds, or `nil` when opusfile cannot tell (e.g. an unseekable stream).
+    /// Opus always decodes at 48 kHz.
+    var duration: Float64? {
         let samples = op_pcm_total(file, -1)
         guard samples > 0 else {
-            return 0
+            return nil
         }
         return Float64(samples) / 48000
     }

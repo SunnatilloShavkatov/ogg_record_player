@@ -35,7 +35,7 @@ public class OggRecordPlayerPlugin: NSObject, FlutterPlugin {
     channel.invokeMethod("onPlayerStateChanged", arguments: [
       "state": player.status.rawValue,
       "position": player.currentTime,
-      "duration": player.duration,
+      "duration": player.duration ?? 0,
       "playerId": id,
       "speed": player.playRate,
     ])
@@ -134,9 +134,9 @@ public class OggRecordPlayerPlugin: NSObject, FlutterPlugin {
       }
       result(nil)
     case "getDuration":
-      // Fractional seconds, matching the Android implementation.
-      if let playerId = call.arguments as? Int, let player = playerDictionary[playerId] {
-        result(player.duration)
+      // Fractional seconds, matching the Android implementation; nil when the length is unknown.
+      if let playerId = call.arguments as? Int, let player = playerDictionary[playerId], let duration = player.duration {
+        result(duration)
       } else {
         result(nil)
       }
@@ -151,8 +151,8 @@ public class OggRecordPlayerPlugin: NSObject, FlutterPlugin {
       }
       result(nil)
     case "createRecorder":
-      guard let path = call.arguments as? String else {
-        result(FlutterError(code: "3", message: "recorder path can not be null", details: nil))
+      guard let path = call.arguments as? String, !path.isEmpty else {
+        result(FlutterError(code: "INVALID_ARGUMENT", message: "recorder path must be a non-empty string", details: nil))
         break
       }
 
@@ -214,6 +214,7 @@ enum PlayerError: String {
       switch error {
       case .httpStatus: return .httpError
       case .invalidFile: return .invalidFile
+      case .tooLarge: return .ioError
       }
     case is OggOpusReader.Error:
       return .invalidFile

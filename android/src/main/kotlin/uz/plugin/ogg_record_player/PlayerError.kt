@@ -1,6 +1,8 @@
 package uz.plugin.ogg_record_player
 
+import androidx.media3.common.PlaybackException
 import io.flutter.plugin.common.MethodChannel
+import java.io.File
 import java.io.IOException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
@@ -25,11 +27,31 @@ internal enum class PlayerError(val code: String, val message: String) {
             is IOException -> IO_ERROR
             else -> UNKNOWN
         }
+
+        /** Playback failures after creation: unparsable or undecodable audio versus unreadable data. */
+        fun from(error: PlaybackException): PlayerError = when (error.errorCode) {
+            in PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED..PlaybackException.ERROR_CODE_PARSING_MANIFEST_UNSUPPORTED,
+            PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED -> INVALID_FILE
+            in PlaybackException.ERROR_CODE_IO_UNSPECIFIED until PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED -> IO_ERROR
+            else -> UNKNOWN
+        }
     }
 }
 
 internal fun MethodChannel.Result.fail(playerError: PlayerError, details: String?) {
     error(playerError.code, playerError.message, details)
+}
+
+/** Reads only the first four bytes of the file. */
+internal fun File.hasOggSignature(): Boolean = inputStream().use { stream ->
+    val header = ByteArray(4)
+    var read = 0
+    while (read < header.size) {
+        val count = stream.read(header, read, header.size - read)
+        if (count < 0) break
+        read += count
+    }
+    read == header.size && header.hasOggSignature()
 }
 
 /** Every Ogg page starts with "OggS". */

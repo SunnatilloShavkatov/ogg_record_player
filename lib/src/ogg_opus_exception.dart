@@ -36,11 +36,17 @@ class OggOpusPlayerException implements Exception {
 class OggOpusRecorderException implements Exception {
   const new({required this.code, required this.message, this.details});
 
+  /// The recording path was empty.
+  static const String invalidArgument = 'INVALID_ARGUMENT';
+
   /// The microphone permission has not been granted (Android).
   static const String permissionDenied = 'PERMISSION_DENIED';
 
   /// The native recorder reported a failure after `start()` returned; [message] carries its reason.
   static const String startFailed = 'START_FAILED';
+
+  /// `stop()` got no answer from the native recorder in time; the recording is lost.
+  static const String stopTimeout = 'STOP_TIMEOUT';
 
   /// Anything else, including a missing native implementation.
   static const String unknown = 'UNKNOWN';

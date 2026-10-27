@@ -16,12 +16,14 @@
 - Channel name is fixed: `MethodChannel('ogg_record_player')`.
 - Dart → native methods: `createFromFile` (path), `createFromUrl` (http/https string), `createFromBytes` (`Uint8List`), `play`, `pause`, `stop`, `getDuration`, `setPlaybackSpeed`, `warmUp`, `createRecorder`, `startRecord`, `stopRecord`, `destroyRecorder`.
 - Native → Dart callbacks: `onPlayerStateChanged`, `onRecorderCanceled`, `onRecorderStartFailed`, `onRecorderFinished`.
+- `onPlayerStateChanged` state `4` means the player failed after creation (Android only for now); the payload then carries `errorCode`, one of the `createFrom*` codes. Both platforms send `onRecorderStartFailed` when a recorder cannot start after `startRecord` returned.
 - The plugin has no logging on any side (no `debugPrint`, `developer.log`, `NSLog`, `Log.*` or `__android_log_*`); don't add it back. Failures surface only as exceptions/error states.
 - Player/recorder instances are tracked by generated integer IDs on all sides (`_players`, `_recorders`, `playerDictionary`, `players`).
 
 ## Remote playback and errors
 - `createFromUrl` uses one flow on every platform: `RemoteAudioLoader` (`RemoteAudioLoader.swift` / `RemoteAudioLoader.kt`) downloads fresh bytes for each new player, checks the `OggS` signature and plays from memory through the same path as `createFromBytes`. Never cache downloads on disk, reuse them across players or enable HTTP caching; URLs can be expiring S3 signed URLs. Keep the two implementations in sync.
 - `createFromBytes` never touches disk: Darwin decodes with `op_open_memory` (`OggOpusReader(data:)`), Android plays through Media3 `ByteArrayDataSource` (`bytesMediaSource`). Both reject input without the `OggS` signature as `INVALID_FILE`.
+- Downloads are capped at 32 MiB on both sides (`RemoteAudioLoader.MAX_BYTES` / `RemoteAudioLoader.maxBytes`) and fail as `IO_ERROR`. Keep the limits equal.
 - `createFrom*` failures use the same codes on both sides (`PlayerError` in Swift and Kotlin): `INVALID_ARGUMENT`, `FILE_NOT_FOUND`, `NETWORK_ERROR`, `HTTP_ERROR`, `INVALID_FILE`, `IO_ERROR`, `UNKNOWN`. Dart maps them to `OggOpusPlayerException`; recorder failures map to `OggOpusRecorderException`.
 - Dart layering: `OggRecordPlayerPlatform` (platform interface) → `MethodChannelOggRecordPlayer` (only place touching the channel, converts `PlatformException`) → `player_plugin_impl.dart` (public classes, one event subscription routed by id).
 
@@ -53,6 +55,6 @@
 ## Project-specific conventions / watch-outs
 - Lints come from `analysis_lints` (`analysis_options.yaml`), so keep code style aligned with those rules.
 - Version is mirrored across `pubspec.yaml`, Android `build.gradle.kts`, and Darwin podspec.
-- README says Android `minSdk 24`, but Gradle config currently sets `minSdk = 26`; check both when changing platform requirements.
+- README and Gradle (`android/build.gradle.kts`) both say Android `minSdk 26`; change them together.
 - Prefer following existing method names and callback payload keys exactly; Dart/native parsing is string-key and brittle to renames.
 

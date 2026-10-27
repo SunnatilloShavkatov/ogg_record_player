@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.ByteArrayDataSource
@@ -51,6 +52,9 @@ enum class Status {
     Playing,
     Paused,
     Stopped,
+
+    /** Playback failed after the player was created; mapped to `PlayerState.error` in Dart. */
+    Failed,
 }
 
 @UnstableApi
@@ -76,10 +80,24 @@ class AudioPlayer(
 
     val position: Double get() = player.currentPosition / 1000.0
 
-    val duration: Double get() = if (player.duration == C.TIME_UNSET) 0.0 else player.duration / 1000.0
+    /** Total duration in seconds, or `null` while the source is unprepared or does not report one. */
+    val durationOrNull: Double? get() = if (player.duration == C.TIME_UNSET) null else player.duration / 1000.0
+
+    /** [durationOrNull] for the state callback payload, which has no way to say "unknown". */
+    val duration: Double get() = durationOrNull ?: 0.0
+
+    /** The error that stopped playback, kept so [state] keeps reporting [Status.Failed] afterwards. */
+    var failure: PlaybackException? = null
+        private set
+
+    private var released = false
+    private val durationWaiters = mutableListOf<(Double?) -> Unit>()
 
     val state: Status
         get() {
+            if (failure != null) {
+                return Status.Failed
+            }
             when (player.playbackState) {
                 Player.STATE_IDLE -> {
                     return Status.Initial
@@ -140,9 +158,38 @@ class AudioPlayer(
         }
     }
 
+    /**
+     * Calls [onResult] on the main thread with the duration once the source is prepared. Unlike [durationOrNull],
+     * it does not answer `null` just because preparing has not finished: `null` means the duration is
+     * unavailable (unknown length, playback failure or destroyed player).
+     */
+    fun awaitDuration(onResult: (Double?) -> Unit) {
+        if (released || failure != null || durationSettled()) {
+            onResult(if (released) null else durationOrNull)
+        } else {
+            durationWaiters.add(onResult)
+        }
+    }
+
+    private fun durationSettled(): Boolean =
+        durationOrNull != null || player.playbackState == Player.STATE_READY ||
+            player.playbackState == Player.STATE_ENDED
+
+    private fun flushDurationWaiters(duration: Double?) {
+        val waiters = durationWaiters.toList()
+        durationWaiters.clear()
+        waiters.forEach { it(duration) }
+    }
+
     fun destroy() {
+        released = true
         player.removeListener(this)
+        flushDurationWaiters(null)
         player.release()
+    }
+
+    override fun onPlayerError(error: PlaybackException) {
+        failure = error
     }
 
     // One coherent snapshot after a batch of events, including buffering, focus suppression,
@@ -150,6 +197,9 @@ class AudioPlayer(
     override fun onEvents(player: Player, events: Player.Events) {
         if (player.playbackState == Player.STATE_ENDED) {
             releaseAudioFocus()
+        }
+        if (durationWaiters.isNotEmpty() && (failure != null || durationSettled())) {
+            flushDurationWaiters(durationOrNull)
         }
         callback(this)
     }
