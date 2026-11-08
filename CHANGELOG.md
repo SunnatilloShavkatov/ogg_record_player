@@ -13,6 +13,9 @@
 ### Added
 - On-device end-to-end tests with Patrol in `example/patrol_test/` (playback, URL errors, recording, reuse, cancel, background, the 3-minute cap), run on a real Android device and the iOS simulator.
 
+- First release on pub.dev: install with `flutter pub add ogg_record_player`. The published package includes the example app's code.
+- `LICENSE` includes the BSD notices of the bundled libogg, libopus, libopusenc and opusfile, so Flutter lists them on the app's license page.
+
 ### Changed
 - **Android:** A player creates its ExoPlayer (playback thread, decoder, AudioTrack) only when first played, or when `getDuration()` cannot read the duration from the Ogg container. Screens with many voice messages no longer hold a decoder per message. The first `play()` of a message now includes the short prepare.
 - **iOS:** Recording uses 20 ms audio buffers instead of 5 ms: 4x fewer real-time callbacks and allocations.

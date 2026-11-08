@@ -15,13 +15,18 @@ Other platforms throw `UnsupportedError`.
 
 ## Installation
 
+```shell
+flutter pub add ogg_record_player
+```
+
+or in `pubspec.yaml`:
+
 ```yaml
 dependencies:
-  ogg_record_player:
-    git:
-      url: https://github.com/SunnatilloShavkatov/ogg_record_player.git
-      ref: 2.7.0
+  ogg_record_player: ^2.7.0
 ```
+
+Requires Dart 3.13 / Flutter 3.47 or newer.
 
 ## Platform setup
 
@@ -235,4 +240,5 @@ flutter run
 
 ## License
 
-See [LICENSE](LICENSE).
+Apache 2.0, see [LICENSE](LICENSE). The bundled libogg, libopus, libopusenc and opusfile are BSD-licensed;
+their notices are in the same file, so Flutter lists them on your app's license page (`showLicensePage`).

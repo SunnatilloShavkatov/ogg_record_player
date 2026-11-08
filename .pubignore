@@ -57,8 +57,12 @@ app.*.map.json
 # Maintainer scripts that rebuild the vendored xcframeworks; consumers use the prebuilt ones
 /darwin/*.sh
 
-# Keep the example app out of the published archive
-/example/
+# Publish only the example's Dart code (shown on pub.dev's Example tab), not its native projects,
+# build output or device tests
+/example/*
+!/example/lib/
+!/example/pubspec.yaml
+!/example/README.md
 
 # Claude Code project instructions (dev-only)
 /CLAUDE.md
