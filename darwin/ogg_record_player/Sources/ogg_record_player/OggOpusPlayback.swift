@@ -12,6 +12,7 @@ final class OggOpusPlayback {
 
   private let reader: OggOpusReader
   private let processingQueue = DispatchQueue(label: "uz.plugin.ogg_record_player.decode", qos: .userInitiated)
+  private static let processingQueueKey = DispatchSpecificKey<ObjectIdentifier>()
   private var audioQueue: AudioQueueRef?
   private var buffers = [AudioQueueBufferRef]()
   // Three 120 ms buffers at 48 kHz, stereo, signed 16-bit PCM.
@@ -38,10 +39,8 @@ final class OggOpusPlayback {
 
   init(reader: OggOpusReader) throws {
     self.reader = reader
-    var format = Self.format
-    let result = AudioQueueNewOutputWithDispatchQueue(&audioQueue, &format, 0, processingQueue) { [weak self] queue, buffer in
-      self?.refill(queue: queue, buffer: buffer)
-    }
+    processingQueue.setSpecific(key: Self.processingQueueKey, value: ObjectIdentifier(self))
+    let result = Self.newOutput(&audioQueue, callback: playbackBufferCompleted, context: context)
     guard result == noErr, let queue = audioQueue else { throw Error.audioQueue(result) }
     do {
       try check(AudioQueueAddPropertyListener(queue, kAudioQueueProperty_IsRunning, playbackRunningChanged, context))
@@ -64,9 +63,8 @@ final class OggOpusPlayback {
   /// throwaway queue with the same format, so the first real player starts warm. Never starts the queue
   /// or touches the audio session. Call it off the main thread: a cold setup takes about 100 ms.
   static func warmUp() {
-    var format = Self.format
     var audioQueue: AudioQueueRef?
-    let result = AudioQueueNewOutputWithDispatchQueue(&audioQueue, &format, 0, DispatchQueue.global(qos: .utility)) { _, _ in }
+    let result = newOutput(&audioQueue, callback: { _, _, _ in }, context: nil)
     guard result == noErr, let queue = audioQueue else { return }
     var buffer: AudioQueueBufferRef?
     AudioQueueAllocateBuffer(queue, bufferByteCount, &buffer)
@@ -74,6 +72,27 @@ final class OggOpusPlayback {
     AudioQueueSetProperty(queue, kAudioQueueProperty_EnableTimePitch, &enabled, UInt32(MemoryLayout.size(ofValue: enabled)))
     // Disposing also frees the buffer.
     AudioQueueDispose(queue, true)
+  }
+
+  /// Run-loop AudioQueue, not AudioQueueNewOutputWithDispatchQueue: on iOS 15/16, disposing a dispatch
+  /// queue variant while one of its audio server messages is being handled tears AudioToolbox's mach port
+  /// servicer down on the queue it serves, which traps in dispatch_sync ("queue already owned by current
+  /// thread"). Callbacks arrive on a dedicated thread, so decoding still stays off the main thread.
+  private static func newOutput(_ audioQueue: inout AudioQueueRef?, callback: AudioQueueOutputCallback,
+                                context: UnsafeMutableRawPointer?) -> OSStatus {
+    var format = Self.format
+    return AudioQueueNewOutput(&format, callback, context, AudioQueueCallbackThread.shared.runLoop,
+                               CFRunLoopMode.commonModes.rawValue, 0, &audioQueue)
+  }
+
+  /// Normally runs on AudioQueueCallbackThread and waits for processingQueue, which never waits on that
+  /// thread. A callback AudioQueue invokes inline from processingQueue (AudioQueueReset) refills directly.
+  fileprivate func bufferCompleted(queue: AudioQueueRef, buffer: AudioQueueBufferRef) {
+    if DispatchQueue.getSpecific(key: Self.processingQueueKey) == ObjectIdentifier(self) {
+      refill(queue: queue, buffer: buffer)
+    } else {
+      processingQueue.sync { refill(queue: queue, buffer: buffer) }
+    }
   }
 
   var position: Float64? {
@@ -231,4 +250,35 @@ final class OggOpusPlayback {
 private func playbackRunningChanged(_ context: UnsafeMutableRawPointer?, _ queue: AudioQueueRef, _ property: AudioQueuePropertyID) {
   guard let context = context else { return }
   Unmanaged<OggOpusPlayback>.fromOpaque(context).takeUnretainedValue().runningChanged()
+}
+
+private func playbackBufferCompleted(_ context: UnsafeMutableRawPointer?, _ queue: AudioQueueRef, _ buffer: AudioQueueBufferRef) {
+  guard let context = context else { return }
+  Unmanaged<OggOpusPlayback>.fromOpaque(context).takeUnretainedValue().bufferCompleted(queue: queue, buffer: buffer)
+}
+
+/// One long-lived thread whose run loop receives the buffer callbacks of every player's AudioQueue.
+private final class AudioQueueCallbackThread: Thread {
+  static let shared: AudioQueueCallbackThread = {
+    let thread = AudioQueueCallbackThread()
+    thread.name = "uz.plugin.ogg_record_player.audioqueue"
+    thread.qualityOfService = .userInitiated
+    thread.start()
+    thread.ready.wait()
+    return thread
+  }()
+
+  private let ready = DispatchSemaphore(value: 0)
+  // Written once on this thread before `ready` is signalled.
+  private(set) var runLoop: CFRunLoop!
+
+  override func main() {
+    runLoop = CFRunLoopGetCurrent()
+    // A run loop without a source returns at once; the port keeps this one running.
+    RunLoop.current.add(NSMachPort(), forMode: .common)
+    ready.signal()
+    while true {
+      CFRunLoopRun()
+    }
+  }
 }

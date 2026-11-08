@@ -83,12 +83,18 @@ abstract class OggOpusRecorder {
   /// Starts recording. Throws an [OggOpusRecorderException] if the platform rejects the request, e.g. with
   /// code [OggOpusRecorderException.permissionDenied] when the microphone permission has not been granted, or
   /// if the native recorder could not be created.
+  ///
+  /// The same recorder can record again after [stop]: the new recording replaces the file and the previous
+  /// [duration] and [getWaveformData]. A call made while a [stop] is still finishing waits for it first.
   Future<void> start();
 
   /// Stops recording. Returns immediately without a result when [start] failed;
   /// check [startError] to tell that case apart from an empty recording. Throws an
   /// [OggOpusRecorderException] with code [OggOpusRecorderException.stopTimeout] if the native recorder
   /// never reports the finished file.
+  ///
+  /// A canceled recording (interruption, lost microphone, or a file too short or damaged to keep) also
+  /// completes this, with no file, a [duration] of `0.0` and an empty waveform.
   Future<void> stop();
 
   Future<void> dispose();

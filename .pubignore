@@ -63,3 +63,5 @@ app.*.map.json
 # Claude Code project instructions (dev-only)
 /CLAUDE.md
 AGENTS.md
+/example/ios/Runner.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+/example/ios/Runner.xcworkspace/xcshareddata/swiftpm/Package.resolved

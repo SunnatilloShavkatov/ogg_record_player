@@ -1,7 +1,6 @@
 package uz.plugin.ogg_record_player
 
 import android.content.Context
-import android.content.pm.PackageManager
 import android.os.Handler
 import android.os.Looper
 import androidx.annotation.OptIn
@@ -42,14 +41,21 @@ class OggRecordPlayerPlugin : FlutterPlugin, MethodCallHandler {
     private val mainHandler = Handler(Looper.getMainLooper())
 
     private val players: MutableMap<Int, AudioPlayer> = Collections.synchronizedMap(mutableMapOf())
-    private val recorders: MutableMap<Int, OpusAudioRecorder> = Collections.synchronizedMap(mutableMapOf())
+    private lateinit var recorders: RecorderRegistry
 
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         attached = true
         engineGeneration++
         context = flutterPluginBinding.applicationContext
         channel = MethodChannel(flutterPluginBinding.binaryMessenger, "ogg_record_player")
+        recorders = RecorderRegistry(context, ::generatePlayerId, { engineGeneration }, ::emitIfAttached)
         channel.setMethodCallHandler(this)
+    }
+
+    /** Drops events of an engine that detached since [generation] was taken. */
+    private fun emitIfAttached(generation: Int, method: String, arguments: Map<String, Any?>) {
+        if (!attached || engineGeneration != generation) return
+        channel.invokeMethod(method, arguments)
     }
 
     // Same checks as Darwin, so both platforms report a missing file the same way instead of an idle player.
@@ -71,7 +77,7 @@ class OggRecordPlayerPlugin : FlutterPlugin, MethodCallHandler {
             result.fail(PlayerError.INVALID_FILE, "file is not an Ogg stream")
             return
         }
-        registerPlayer(result) { fileMediaSource(path) }
+        registerPlayer(result, OggOpusDuration.of(file)) { fileMediaSource(path) }
     }
 
     private fun createFromUrl(url: String, result: Result) {
@@ -94,14 +100,14 @@ class OggRecordPlayerPlugin : FlutterPlugin, MethodCallHandler {
             result.fail(PlayerError.INVALID_FILE, "bytes are not an Ogg stream")
             return
         }
-        registerPlayer(result) { bytesMediaSource(bytes) }
+        registerPlayer(result, OggOpusDuration.of(bytes)) { bytesMediaSource(bytes) }
     }
 
     @OptIn(UnstableApi::class)
-    private fun registerPlayer(result: Result, mediaSource: () -> MediaSource) {
+    private fun registerPlayer(result: Result, duration: Double?, mediaSource: () -> MediaSource) {
         try {
             val id = generatePlayerId()
-            players[id] = AudioPlayer(context, mediaSource()) { handlePlayerStateChanged(id, it) }
+            players[id] = AudioPlayer(context, mediaSource(), duration) { handlePlayerStateChanged(id, it) }
             result.success(id)
         } catch (e: Exception) {
             result.fail(PlayerError.from(e), e.localizedMessage)
@@ -155,7 +161,8 @@ class OggRecordPlayerPlugin : FlutterPlugin, MethodCallHandler {
             "play" -> {
                 (call.arguments as? Int)?.let {
                     val requested = players[it]
-                    if (requested != null) {
+                    // Like iOS, playback waits while a recording owns the microphone and the audio focus.
+                    if (requested != null && !recorders.isRecording) {
                         // Audio focus is shared by the app. Also arbitrate its own
                         // players so two voice messages cannot overlap.
                         players.values.toList().forEach { player ->
@@ -207,76 +214,27 @@ class OggRecordPlayerPlugin : FlutterPlugin, MethodCallHandler {
                     result.error("INVALID_ARGUMENT", "recorder path must be a non-empty string", null)
                     return
                 }
-                val id = generatePlayerId()
-                val requestGeneration = engineGeneration
-                val recorder =
-                    OpusAudioRecorder(context, File(path), object : OpusAudioRecorder.Callback {
-                        override fun onCancel(reason: Int) {
-                            if (!attached || engineGeneration != requestGeneration) return
-                            channel.invokeMethod(
-                                "onRecorderCanceled", mapOf(
-                                    "recorderId" to id,
-                                    "reason" to reason,
-                                )
-                            )
-                        }
-
-                        override fun onStartFailed(message: String) {
-                            if (!attached || engineGeneration != requestGeneration) return
-                            channel.invokeMethod(
-                                "onRecorderStartFailed", mapOf(
-                                    "recorderId" to id,
-                                    "error" to message,
-                                )
-                            )
-                        }
-
-                        override fun sendAudio(file: File, duration: Long, waveForm: ByteArray) {
-                            if (!attached || engineGeneration != requestGeneration) return
-                            channel.invokeMethod(
-                                "onRecorderFinished", mapOf(
-                                    "recorderId" to id,
-                                    "duration" to duration,
-                                    "waveform" to waveForm,
-                                )
-                            )
-                        }
-                    })
-                recorders[id] = recorder
-                result.success(id)
+                result.success(recorders.create(path))
             }
 
             "startRecord" -> {
-                // check has permission
-                val hasPermission =
-                    context.checkCallingOrSelfPermission(android.Manifest.permission.RECORD_AUDIO)
-                if (hasPermission == PackageManager.PERMISSION_DENIED) {
+                if (!recorders.hasRecordPermission()) {
                     result.error("PERMISSION_DENIED", "RECORD_AUDIO", null)
                     return
                 }
-                (call.arguments as? Int)?.let {
-                    val recorder = recorders[it]
-                    if (recorder != null) {
-                        players.values.toList().forEach { player -> player.pause() }
-                        recorder.startRecording()
-                    }
+                (call.arguments as? Int)?.let { id ->
+                    recorders.start(id) { players.values.toList().forEach { it.pause() } }
                 }
                 result.success(null)
             }
 
             "stopRecord" -> {
-                (call.arguments as? Int)?.let {
-                    recorders[it]?.stopRecording(AudioEndStatus.SEND)
-                    recorders.remove(it)
-                }
+                (call.arguments as? Int)?.let { recorders.stop(it) }
                 result.success(null)
             }
 
             "destroyRecorder" -> {
-                (call.arguments as? Int)?.let {
-                    recorders[it]?.stopRecording(AudioEndStatus.CANCEL)
-                    recorders.remove(it)
-                }
+                (call.arguments as? Int)?.let { recorders.destroy(it) }
                 result.success(null)
             }
 
@@ -308,7 +266,6 @@ class OggRecordPlayerPlugin : FlutterPlugin, MethodCallHandler {
         channel.setMethodCallHandler(null)
         players.values.toList().forEach { it.destroy() }
         players.clear()
-        recorders.values.toList().forEach { it.stopRecording(AudioEndStatus.CANCEL) }
-        recorders.clear()
+        recorders.destroyAll()
     }
 }

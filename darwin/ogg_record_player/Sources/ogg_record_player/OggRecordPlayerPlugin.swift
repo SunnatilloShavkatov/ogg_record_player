@@ -163,7 +163,7 @@ public class OggRecordPlayerPlugin: NSObject, FlutterPlugin {
       result(id)
     case "startRecord":
       if let id = call.arguments as? Int {
-        recorderDictionary[id]?.record(for: TimeInterval.infinity)
+        recorderDictionary[id]?.record(for: maxRecordingDuration)
       }
       result(nil)
     case "stopRecord":
@@ -172,16 +172,21 @@ public class OggRecordPlayerPlugin: NSObject, FlutterPlugin {
       }
       result(nil)
     case "destroyRecorder":
-      if let id = call.arguments as? Int {
-        recorderDictionary[id]?.cancel(for: .userInitiated)
-        recorderDictionary.removeValue(forKey: id)
+      guard let id = call.arguments as? Int, let recorder = recorderDictionary.removeValue(forKey: id) else {
+        result(nil)
+        return
       }
-      result(nil)
+      // Answer once the recording released the audio session: a `play` sent right after the Dart `dispose()`
+      // would otherwise still find the recorder owning it and be refused.
+      recorder.cancel(for: .userInitiated) { result(nil) }
     default:
       result(FlutterMethodNotImplemented)
     }
   }
 }
+
+/// Recordings stop and finish on their own after 3 minutes, like Android's `MAX_RECORD_DURATION`.
+private let maxRecordingDuration: TimeInterval = 180
 
 /// Every Ogg page starts with "OggS".
 private let oggSignature = Data("OggS".utf8)

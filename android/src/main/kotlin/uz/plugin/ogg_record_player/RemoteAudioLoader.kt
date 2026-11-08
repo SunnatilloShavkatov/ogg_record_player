@@ -6,6 +6,7 @@ import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.net.HttpURLConnection
+import java.net.SocketTimeoutException
 import java.net.URL
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
@@ -24,6 +25,12 @@ class ResponseTooLargeException : IOException("Download is larger than ${RemoteA
 internal object RemoteAudioLoader {
 
     private const val TIMEOUT_MS = 30_000
+
+    /**
+     * Whole-download deadline: [TIMEOUT_MS] bounds only each read, so a server trickling bytes could otherwise hold a
+     * worker indefinitely. Same as Darwin's `timeoutIntervalForResource`.
+     */
+    private const val TOTAL_TIMEOUT_MS = 120_000L
 
     /** Largest accepted download; the Darwin loader enforces the same limit. */
     const val MAX_BYTES = 32 * 1024 * 1024
@@ -46,6 +53,7 @@ internal object RemoteAudioLoader {
     }
 
     private fun download(url: String): ByteArray {
+        val deadline = System.nanoTime() + TOTAL_TIMEOUT_MS * 1_000_000
         val connection = URL(url).openConnection() as HttpURLConnection
         try {
             connection.connectTimeout = TIMEOUT_MS
@@ -60,10 +68,11 @@ internal object RemoteAudioLoader {
             if (status !in 200..299) {
                 throw HttpStatusException(status)
             }
-            if (connection.contentLengthLong > MAX_BYTES) {
+            val contentLength = connection.contentLengthLong
+            if (contentLength > MAX_BYTES) {
                 throw ResponseTooLargeException()
             }
-            val bytes = connection.inputStream.use { it.readBounded(MAX_BYTES) }
+            val bytes = connection.inputStream.use { it.readBounded(MAX_BYTES, contentLength, deadline) }
             if (!bytes.hasOggSignature()) {
                 throw InvalidAudioFileException()
             }
@@ -73,11 +82,30 @@ internal object RemoteAudioLoader {
         }
     }
 
-    /** Like [InputStream.readBytes], but stops as soon as the stream passes [limit] bytes. */
-    private fun InputStream.readBounded(limit: Int): ByteArray {
+    /**
+     * Like [InputStream.readBytes], but stops as soon as the stream passes [limit] bytes or [deadline] (a
+     * [System.nanoTime] value). With a known [contentLength] it reads straight into one array of that size,
+     * instead of growing a buffer and copying it out at the end (twice the memory at the peak).
+     */
+    private fun InputStream.readBounded(limit: Int, contentLength: Long, deadline: Long): ByteArray {
+        if (contentLength in 0..limit.toLong()) {
+            val bytes = ByteArray(contentLength.toInt())
+            var filled = 0
+            while (filled < bytes.size) {
+                checkDeadline(deadline)
+                val count = read(bytes, filled, bytes.size - filled)
+                if (count < 0) {
+                    // The server closed early; the shorter body is still checked for an Ogg signature by the caller.
+                    return bytes.copyOf(filled)
+                }
+                filled += count
+            }
+            return bytes
+        }
         val output = ByteArrayOutputStream()
         val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
         while (true) {
+            checkDeadline(deadline)
             val count = read(buffer)
             if (count < 0) {
                 return output.toByteArray()
@@ -86,6 +114,12 @@ internal object RemoteAudioLoader {
                 throw ResponseTooLargeException()
             }
             output.write(buffer, 0, count)
+        }
+    }
+
+    private fun checkDeadline(deadline: Long) {
+        if (System.nanoTime() - deadline > 0) {
+            throw SocketTimeoutException("Download took longer than $TOTAL_TIMEOUT_MS ms")
         }
     }
 }

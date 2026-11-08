@@ -52,6 +52,9 @@ final class RemoteAudioLoader: NSObject {
     configuration.urlCache = nil
     configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
     configuration.timeoutIntervalForRequest = 30
+    // Whole-download deadline: a server that trickles bytes would otherwise hold the download for as long as each
+    // read stays under the 30 s idle timeout. Same as Android's `TOTAL_TIMEOUT_MS`.
+    configuration.timeoutIntervalForResource = 120
     configuration.httpMaximumConnectionsPerHost = 4
     session = URLSession(configuration: configuration, delegate: self, delegateQueue: delegateQueue)
   }

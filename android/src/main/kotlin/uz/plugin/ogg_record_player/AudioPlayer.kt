@@ -57,10 +57,17 @@ enum class Status {
     Failed,
 }
 
+/**
+ * One voice message. The ExoPlayer (a playback thread, a decoder and an AudioTrack) is created only when the
+ * message is played, or when its duration cannot be read from the container; a chat with many messages therefore
+ * does not hold one decoder per message.
+ */
 @UnstableApi
 class AudioPlayer(
-    context: Context,
-    mediaSource: MediaSource,
+    private val context: Context,
+    private val mediaSource: MediaSource,
+    /** Duration read from the Ogg container ([OggOpusDuration]), or `null` when only the decoder can tell. */
+    private val containerDuration: Double?,
     private val callback: OnPlayerStatusChangedCallback,
 ) : Player.Listener {
 
@@ -69,19 +76,34 @@ class AudioPlayer(
         .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH)
         .build()
     private var focusEnabled = true
+    private var speed = 1.0
+
+    private var exoPlayer: ExoPlayer? = null
 
     // Media3 handles transient loss/resumption (including calls) on its playback
     // thread. Manual pauses/end release focus without discarding the prepared source.
-    private val player = ExoPlayer.Builder(context, audioRenderersFactory(context), MediaSource.Factory.UNSUPPORTED)
-        .setAudioAttributes(audioAttributes, true)
+    private fun player(): ExoPlayer = exoPlayer ?: ExoPlayer.Builder(
+        context,
+        audioRenderersFactory(context),
+        MediaSource.Factory.UNSUPPORTED,
+    )
+        .setAudioAttributes(audioAttributes, focusEnabled)
         .setTrackSelector(DefaultTrackSelector(context)).build().apply {
             volume = 1.0f
-        }
+            setPlaybackSpeed(speed.toFloat())
+            addListener(this@AudioPlayer)
+            setMediaSource(mediaSource)
+            prepare()
+        }.also { exoPlayer = it }
 
-    val position: Double get() = player.currentPosition / 1000.0
+    val position: Double get() = (exoPlayer?.currentPosition ?: 0L) / 1000.0
 
     /** Total duration in seconds, or `null` while the source is unprepared or does not report one. */
-    val durationOrNull: Double? get() = if (player.duration == C.TIME_UNSET) null else player.duration / 1000.0
+    val durationOrNull: Double?
+        get() {
+            val duration = exoPlayer?.duration ?: C.TIME_UNSET
+            return if (duration == C.TIME_UNSET) containerDuration else duration / 1000.0
+        }
 
     /** [durationOrNull] for the state callback payload, which has no way to say "unknown". */
     val duration: Double get() = durationOrNull ?: 0.0
@@ -98,6 +120,7 @@ class AudioPlayer(
             if (failure != null) {
                 return Status.Failed
             }
+            val player = exoPlayer ?: return Status.Paused
             when (player.playbackState) {
                 Player.STATE_IDLE -> {
                     return Status.Initial
@@ -123,19 +146,15 @@ class AudioPlayer(
     var playbackRate: Double
         set(value) {
             if (value.isFinite()) {
-                player.setPlaybackSpeed(value.coerceIn(0.5, 2.0).toFloat())
+                speed = value.coerceIn(0.5, 2.0)
+                exoPlayer?.setPlaybackSpeed(speed.toFloat())
             }
         }
-        get() = player.playbackParameters.speed.toDouble()
-
-
-    init {
-        player.addListener(this)
-        player.setMediaSource(mediaSource)
-        player.prepare()
-    }
+        get() = speed
 
     fun play() {
+        if (released) return
+        val player = player()
         if (!focusEnabled) {
             focusEnabled = true
             player.setAudioAttributes(audioAttributes, true)
@@ -147,6 +166,7 @@ class AudioPlayer(
     }
 
     fun pause() {
+        val player = exoPlayer ?: return
         player.pause()
         releaseAudioFocus()
     }
@@ -154,26 +174,30 @@ class AudioPlayer(
     private fun releaseAudioFocus() {
         if (focusEnabled) {
             focusEnabled = false
-            player.setAudioAttributes(audioAttributes, false)
+            exoPlayer?.setAudioAttributes(audioAttributes, false)
         }
     }
 
     /**
-     * Calls [onResult] on the main thread with the duration once the source is prepared. Unlike [durationOrNull],
-     * it does not answer `null` just because preparing has not finished: `null` means the duration is
-     * unavailable (unknown length, playback failure or destroyed player).
+     * Calls [onResult] on the main thread with the duration once it is known. Unlike [durationOrNull], it does
+     * not answer `null` just because preparing has not finished: `null` means the duration is unavailable
+     * (unknown length, playback failure or destroyed player).
      */
     fun awaitDuration(onResult: (Double?) -> Unit) {
         if (released || failure != null || durationSettled()) {
             onResult(if (released) null else durationOrNull)
-        } else {
-            durationWaiters.add(onResult)
+            return
         }
+        durationWaiters.add(onResult)
+        // The container did not tell; only a prepared player can. Preparing does not start playback or take focus.
+        player()
     }
 
-    private fun durationSettled(): Boolean =
-        durationOrNull != null || player.playbackState == Player.STATE_READY ||
+    private fun durationSettled(): Boolean {
+        val player = exoPlayer ?: return containerDuration != null
+        return durationOrNull != null || player.playbackState == Player.STATE_READY ||
             player.playbackState == Player.STATE_ENDED
+    }
 
     private fun flushDurationWaiters(duration: Double?) {
         val waiters = durationWaiters.toList()
@@ -183,9 +207,12 @@ class AudioPlayer(
 
     fun destroy() {
         released = true
-        player.removeListener(this)
         flushDurationWaiters(null)
-        player.release()
+        exoPlayer?.let {
+            it.removeListener(this)
+            it.release()
+        }
+        exoPlayer = null
     }
 
     override fun onPlayerError(error: PlaybackException) {

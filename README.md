@@ -20,7 +20,7 @@ dependencies:
   ogg_record_player:
     git:
       url: https://github.com/SunnatilloShavkatov/ogg_record_player.git
-      ref: 2.6.0
+      ref: 2.7.0
 ```
 
 ## Platform setup
@@ -30,6 +30,9 @@ dependencies:
 `RECORD_AUDIO` is declared by the plugin, but it is a runtime permission: **your app must request it
 before calling `OggOpusRecorder.start()`** (for example with `permission_handler`).
 Without it `start()` throws an `OggOpusRecorderException` with code `PERMISSION_DENIED`.
+
+No other permission is needed. A recording holds the audio focus; a phone call, an assistant or another app
+taking it cancels the recording, and a recording cannot start during a call.
 
 ### iOS
 
@@ -147,8 +150,13 @@ Playback manages the platform's audio session itself, so no audio session packag
   automatic resumption. `play()` does nothing while a recording owns the session or a system interruption is active.
 
 Both platforms select the audio output natively, including Bluetooth. The plugin does not add automatic pause
-on headphone/Bluetooth disconnection. Only one of this plugin's players plays at a time, and starting a recording
-pauses its players. All focus/interruption handling is native; no Dart interruption listener is required.
+on headphone/Bluetooth disconnection. Only one of this plugin's players plays at a time, starting a recording
+pauses its players, and `play()` does nothing while a recording is in progress. All focus/interruption handling
+is native; no Dart interruption listener is required.
+
+On Android a player creates its decoder only when it is first played (or when `getDuration()` cannot read the
+duration from the Ogg container), so a screen with many voice messages does not hold a decoder per message.
+URL downloads give up after 120 seconds in total, or 30 seconds without data, with `NETWORK_ERROR`.
 
 ### Native library size
 
@@ -170,8 +178,8 @@ final recorder = OggOpusRecorder('/path/to/new_voice.ogg');
 
 try {
   await recorder.start();
-} on Exception catch (e) {
-  // e.g. PlatformException(PERMISSION_DENIED) when the microphone permission is missing.
+} on OggOpusRecorderException catch (e) {
+  // e.g. code PERMISSION_DENIED when the microphone permission is missing.
   await recorder.dispose();
   return;
 }
@@ -191,7 +199,16 @@ Notes:
   only after it completes.
 - If `start()` failed, `stop()` returns immediately and `duration()` is `0.0` with an empty waveform.
   `recorder.startError` holds the reason, so a failed start can be told apart from an empty recording.
-- `dispose()` while a recording is in progress cancels it and deletes the file on Android.
+- If the native recorder never reports the file, `stop()` throws `OggOpusRecorderException` with code
+  `STOP_TIMEOUT` after 10 seconds.
+- A recording stops and finishes by itself after 3 minutes on both platforms.
+- A canceled recording has no file: `stop()` completes, `duration()` is `0.0` and the waveform is empty. A
+  recording is canceled when a call or another app interrupts it, the microphone stops delivering audio, the
+  route loses its input (iOS), or the file would be unusable: shorter than about 250 ms, or hit by a write error
+  such as a full disk.
+- The same recorder can record again after `stop()`; the new recording replaces the file, and `duration()` /
+  `getWaveformData()` describe the latest one. `start()` called while a `stop()` is still finishing waits for it.
+- `dispose()` while a recording is in progress cancels it and deletes the file.
 - Waveform format differs per platform: Android returns 5-bit packed data, iOS returns 100
   intensity bytes.
 
@@ -200,7 +217,7 @@ Notes:
 |             | Playback                       | Recording                                                          |
 |-------------|--------------------------------|--------------------------------------------------------------------|
 | Android     | Media3 ExoPlayer               | `AudioRecord` → JNI → libopusenc (16 kHz mono, 16 kbps, max 3 min) |
-| iOS         | `AudioQueue` + Ogg Opus reader | `AudioUnit` → libopusenc                                           |
+| iOS         | `AudioQueue` + Ogg Opus reader | `AudioUnit` → libopusenc (16 kHz mono, 16 kbps, max 3 min)         |
 
 Android links prebuilt static `libogg`, `libopus` and `libopusenc` from
 `android/src/main/cpp/opus/lib/<abi>/`. `libopusenc` is built from 0.2.1 with `-DNDEBUG`, because a

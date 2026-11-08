@@ -1,3 +1,23 @@
+## 2.7.0
+
+### Fixed
+- A recording that cannot form a valid file (shorter than 250 ms at 16 kHz, or with encoder write errors such as a full disk) is now deleted and reported as `onRecorderCanceled` with reason `4`, instead of being reported as a finished recording with a broken file. `stop()` completes and `duration()` stays `0.0`. On Android a write error cancels the recording as soon as it happens.
+- **Android:** Phone calls are detected through the audio focus instead of `PhoneStateListener`, which silently stopped working on Android 12+ without `READ_PHONE_STATE`. No extra permission is needed; a recording cannot start during a call, and another app taking the focus cancels it. Removed unused code (the global recorder `state` and an unused loudness sum in the read loop).
+- An `OggOpusRecorder` can record again after `stop()`. On Android a second `start()` used to do nothing and the following `stop()` waited 10 seconds for `STOP_TIMEOUT`; on iOS the second recording's duration and waveform included the first one. `start()` now clears the previous results, and waits for a `stop()` that is still finishing.
+- **iOS:** Recordings stop by themselves after 3 minutes, like on Android. A second `start()` while recording no longer opens another audio unit on the same file.
+- **Android:** `play()` does nothing while a recording is in progress, like on iOS.
+- **iOS:** Microphone buffers still queued when the recorder stops are freed instead of leaked.
+- **iOS:** `OggOpusRecorder.dispose()` completes only after the recording released the audio session. A `play()` sent right after disposing an active recorder used to be refused, as if the recording were still running.
+- **iOS:** Playback no longer crashes on iOS 15/16 with `EXC_BREAKPOINT` in `CADeprecated::XMachPortServicer::DispatchImpl::~DispatchImpl()` ("dispatch_sync called on queue already owned by current thread") when a player is disposed. The AudioQueue is created with a run loop on a dedicated callback thread instead of `AudioQueueNewOutputWithDispatchQueue`; decoding stays off the main thread.
+
+### Added
+- On-device end-to-end tests with Patrol in `example/patrol_test/` (playback, URL errors, recording, reuse, cancel, background, the 3-minute cap), run on a real Android device and the iOS simulator.
+
+### Changed
+- **Android:** A player creates its ExoPlayer (playback thread, decoder, AudioTrack) only when first played, or when `getDuration()` cannot read the duration from the Ogg container. Screens with many voice messages no longer hold a decoder per message. The first `play()` of a message now includes the short prepare.
+- **iOS:** Recording uses 20 ms audio buffers instead of 5 ms: 4x fewer real-time callbacks and allocations.
+- URL downloads fail with `NETWORK_ERROR` after 120 seconds in total on both platforms, not only after 30 seconds without data. Android reads a download with a known length straight into one array instead of copying it at the end.
+
 ## 2.6.0
 
 ### Fixed

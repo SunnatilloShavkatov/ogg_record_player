@@ -22,9 +22,18 @@ dev_dependencies:
     sdk: flutter
   flutter_test:
     sdk: flutter
+  patrol: ^4.11.0
 
 flutter:
   uses-material-design: true
 
   assets:
     - audios/test.ogg
+
+patrol:
+  app_name: Ogg Opus Player
+  test_directory: patrol_test
+  android:
+    package_name: uz.plugin.ogg_record_player_example
+  ios:
+    bundle_id: uz.plugin.oggOpusPlayerExample

@@ -22,9 +22,9 @@ typedef struct OpusRecorderContext {
     struct OpusRecorderContext *next;
 } OpusRecorderContext;
 
-// The prebuilt libopusenc is compiled with assertions on, and ope_encoder_drain()
-// asserts (abort) when the stream does not close cleanly. Drain only recordings
-// that are long enough and error-free; anything else is destroyed without drain.
+// ope_encoder_drain() on a very short or failed stream does not close cleanly, so
+// drain only recordings that are long enough and error-free; anything else is
+// destroyed without drain and stopRecord() reports that the file is unusable.
 #define MIN_DRAIN_SAMPLES 4000
 
 static pthread_mutex_t g_registry_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -171,9 +171,10 @@ JNIEXPORT jint JNICALL Java_uz_plugin_ogg_1record_1player_OpusAudioRecorder_writ
     return result;
 }
 
-JNIEXPORT void JNICALL Java_uz_plugin_ogg_1record_1player_OpusAudioRecorder_stopRecord(JNIEnv *env, jobject thiz, jlong handle) {
+// Returns JNI_TRUE only when the file was drained into a complete stream.
+JNIEXPORT jboolean JNICALL Java_uz_plugin_ogg_1record_1player_OpusAudioRecorder_stopRecord(JNIEnv *env, jobject thiz, jlong handle) {
     if (handle == 0) {
-        return;
+        return JNI_FALSE;
     }
 
     uint64_t id = (uint64_t) handle;
@@ -192,19 +193,21 @@ JNIEXPORT void JNICALL Java_uz_plugin_ogg_1record_1player_OpusAudioRecorder_stop
     }
     if (ctx == NULL) {
         pthread_mutex_unlock(&g_registry_lock);
-        return;
+        return JNI_FALSE;
     }
     while (ctx->refs > 0) {
         pthread_cond_wait(&g_registry_cond, &g_registry_lock);
     }
     pthread_mutex_unlock(&g_registry_lock);
 
+    jboolean finalized = JNI_FALSE;
     pthread_mutex_lock(&ctx->lock);
     if (!ctx->is_stopped) {
         ctx->is_stopped = 1;
         if (ctx->enc != NULL) {
             if (!ctx->write_failed && ctx->samples_written >= MIN_DRAIN_SAMPLES) {
                 ope_encoder_drain(ctx->enc);
+                finalized = JNI_TRUE;
             }
             ope_encoder_destroy(ctx->enc);
             ctx->enc = NULL;
@@ -218,6 +221,7 @@ JNIEXPORT void JNICALL Java_uz_plugin_ogg_1record_1player_OpusAudioRecorder_stop
 
     pthread_mutex_destroy(&ctx->lock);
     free(ctx);
+    return finalized;
 }
 
 JNIEXPORT jbyteArray JNICALL Java_uz_plugin_ogg_1record_1player_OpusAudioRecorder_getWaveform2(JNIEnv *env, jobject thiz, jshortArray array, jint length) {

@@ -19,10 +19,13 @@ final class _FakePlatform extends OggRecordPlayerPlatform with MockPlatformInter
   /// Runs after `stopRecord`; a real recorder answers with a finished or canceled event.
   void Function(int recorderId)? onStopRecord;
 
+  void Function(int recorderId)? onStartRecord;
+
   void reset() {
     createRecorderError = null;
     duration = null;
     onStopRecord = null;
+    onStartRecord = null;
   }
 
   void emit(PlayerStateEvent event) => _playerEvents.add(event);
@@ -57,7 +60,7 @@ final class _FakePlatform extends OggRecordPlayerPlatform with MockPlatformInter
   }
 
   @override
-  Future<void> startRecord(int recorderId) async {}
+  Future<void> startRecord(int recorderId) async => onStartRecord?.call(recorderId);
 
   @override
   Future<void> stopRecord(int recorderId) async => onStopRecord?.call(recorderId);
@@ -172,6 +175,65 @@ void main() {
 
       expect(await recorder.duration(), 1.5);
       expect(await recorder.getWaveformData(), <int>[1, 2]);
+    });
+
+    test('the same recorder records again after stop and reports the new recording', () async {
+      final OggOpusRecorderPluginImpl recorder = createRecorder();
+      int finishedDuration = 1500;
+      platform.onStopRecord = (int recorderId) => scheduleMicrotask(
+        () => platform.emitRecorder(
+          RecorderFinishedEvent(
+            recorderId: recorderId,
+            duration: finishedDuration,
+            waveform: Uint8List.fromList(<int>[finishedDuration ~/ 500]),
+          ),
+        ),
+      );
+      await recorder.start();
+      await recorder.stop();
+
+      finishedDuration = 2500;
+      await recorder.start();
+      await recorder.stop();
+
+      expect(await recorder.duration(), 2.5);
+      expect(await recorder.getWaveformData(), <int>[5]);
+    });
+
+    test('starting again clears the previous recording until the new one finishes', () async {
+      final OggOpusRecorderPluginImpl recorder = createRecorder();
+      platform.onStopRecord = (int recorderId) => scheduleMicrotask(
+        () => platform.emitRecorder(
+          RecorderFinishedEvent(recorderId: recorderId, duration: 1500, waveform: Uint8List.fromList(<int>[1])),
+        ),
+      );
+      await recorder.start();
+      await recorder.stop();
+
+      await recorder.start();
+
+      expect(await recorder.duration(), 0.0);
+      expect(await recorder.getWaveformData(), isEmpty);
+    });
+
+    test('start() while the previous recording is still finishing waits for it first', () async {
+      final OggOpusRecorderPluginImpl recorder = createRecorder();
+      final List<String> calls = <String>[];
+      platform.onStopRecord = (int recorderId) => Future<void>.delayed(const Duration(milliseconds: 10), () {
+        calls.add('finished');
+        platform.emitRecorder(
+          RecorderFinishedEvent(recorderId: recorderId, duration: 1500, waveform: Uint8List.fromList(<int>[1])),
+        );
+      });
+      platform.onStartRecord = (int recorderId) => calls.add('start');
+      await recorder.start();
+      calls.clear();
+
+      final Future<void> stopping = recorder.stop();
+      await recorder.start();
+      await stopping;
+
+      expect(calls, <String>['finished', 'start']);
     });
 
     test('a canceled recording ends stop() instead of leaving it waiting', () async {

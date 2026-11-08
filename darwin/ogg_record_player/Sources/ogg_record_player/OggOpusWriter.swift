@@ -6,9 +6,9 @@ import ogg_record_player_c
 fileprivate let numberOfChannels: Int32 = 1;
 fileprivate let outputBitRate: Int32 = 16 * 1024;
 
-/// The prebuilt libopusenc is compiled with assertions on, and `ope_encoder_drain` asserts (abort) when the
-/// stream does not close cleanly. Drain only recordings that are long enough and error-free; anything else is
-/// destroyed without draining. Matches `MIN_DRAIN_SAMPLES` in Android's `audio.c`.
+/// `ope_encoder_drain` on a very short or failed stream does not close cleanly. Drain only recordings that are
+/// long enough and error-free; anything else is destroyed without draining and reported as unusable. Matches
+/// `MIN_DRAIN_SAMPLES` in Android's `audio.c`.
 fileprivate let minDrainSamples: Int64 = 4000
 
 class OggOpusWriter {
@@ -22,7 +22,7 @@ class OggOpusWriter {
     private let comments: OpaquePointer
     private let encoder: OpaquePointer
     private var samplesWritten: Int64 = 0
-    private var writeFailed = false
+    private(set) var writeFailed = false
     private var isClosed = false
     
     init(path: String, inputSampleRate: Int32) throws {
@@ -68,17 +68,22 @@ class OggOpusWriter {
         }
     }
     
-    /// Safe to call more than once.
-    func close() {
+    /// Closes the encoder and returns whether the file is a complete stream. A recording that was too short or had
+    /// write errors is not drained, so its file is unusable and the caller must discard it. Safe to call more
+    /// than once; later calls return the same answer without touching the encoder.
+    @discardableResult
+    func close() -> Bool {
+        let finalized = !writeFailed && samplesWritten >= minDrainSamples
         guard !isClosed else {
-            return
+            return finalized
         }
         isClosed = true
-        if !writeFailed && samplesWritten >= minDrainSamples {
+        if finalized {
             ope_encoder_drain(encoder)
         }
         ope_encoder_destroy(encoder)
         ope_comments_destroy(comments)
+        return finalized
     }
     
 }
