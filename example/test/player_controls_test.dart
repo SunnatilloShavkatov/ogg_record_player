@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:ogg_record_player/ogg_record_player.dart';
 import 'package:ogg_record_player/src/player_plugin_impl.dart';
 import 'package:ogg_record_player_example/player_controls.dart';

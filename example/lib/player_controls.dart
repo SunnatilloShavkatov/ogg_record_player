@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:ogg_record_player/ogg_record_player.dart';
 
 /// Playback controls shared by bundled audio, remote audio and recordings.

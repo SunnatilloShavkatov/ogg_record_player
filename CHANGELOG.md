@@ -1,3 +1,9 @@
+## 2.7.1
+
+### Changed
+- Raised the SDK floor to Dart `>=3.14.0` and Flutter `>=3.50.0`; `analysis_lints` is now `^1.1.1`.
+- Example app: moved from the deprecated `package:flutter/material.dart` to `package:material_ui/material_ui.dart`.
+
 ## 2.7.0
 
 ### Fixed

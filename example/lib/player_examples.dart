@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:ogg_record_player/ogg_record_player.dart';
 import 'package:ogg_record_player_example/player_controls.dart';
 import 'package:path_provider/path_provider.dart';

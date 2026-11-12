@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:audio_session/audio_session.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:ogg_record_player_example/player_examples.dart';
 import 'package:ogg_record_player_example/recorder_example.dart';
 

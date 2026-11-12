@@ -4,11 +4,12 @@ publish_to: "none"
 description: "Example app demonstrating Ogg Opus audio playback and recording with ogg_record_player."
 
 environment:
-  sdk: ">=3.13.0 <4.0.0"
-  flutter: ">=3.47.0"
+  sdk: ">=3.14.0 <4.0.0"
+  flutter: ">=3.50.0"
 
 dependencies:
   audio_session: ^0.2.4
+  material_ui: ^1.11.0
   flutter:
     sdk: flutter
   ogg_record_player:
@@ -17,13 +18,14 @@ dependencies:
   permission_handler: ^13.0.2
 
 dev_dependencies:
-  analysis_lints: ^1.1.0
+  analysis_lints: ^1.1.1
   integration_test:
     sdk: flutter
   flutter_test:
     sdk: flutter
   patrol: ^4.11.0
 
+  test_api: any
 flutter:
   uses-material-design: true
 
