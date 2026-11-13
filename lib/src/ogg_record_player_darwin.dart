@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:objective_c/objective_c.dart' as objc;
 import 'package:ogg_record_player/src/bindings/ogg_record_player_darwin.g.dart';
+import 'package:ogg_record_player/src/native_results.dart';
 import 'package:ogg_record_player/src/ogg_opus_exception.dart';
 import 'package:ogg_record_player/src/ogg_record_player_platform_interface.dart';
 import 'package:ogg_record_player/src/platform_events.dart';
@@ -79,7 +80,7 @@ class DarwinOggRecordPlayer extends OggRecordPlayerPlatform {
         playerId,
         callback: ObjCBlock_ffiVoid_bool_ffiDouble.listener((bool known, double seconds) {
           if (!completer.isCompleted) {
-            completer.complete(known ? seconds : null);
+            completer.complete(durationFromNative(known: known, seconds: seconds));
           }
         }),
       );
@@ -96,14 +97,7 @@ class DarwinOggRecordPlayer extends OggRecordPlayerPlatform {
   @override
   Future<int> createRecorder(String path) async {
     _registerListeners();
-    final int recorderId = OggRecordPlayerApi.createRecorder(path.toNSString());
-    if (recorderId < 0) {
-      throw const OggOpusRecorderException(
-        code: OggOpusRecorderException.unknown,
-        message: 'recorder path must be a non-empty string',
-      );
-    }
-    return recorderId;
+    return recorderIdFromNative(OggRecordPlayerApi.createRecorder(path.toNSString()));
   }
 
   @override

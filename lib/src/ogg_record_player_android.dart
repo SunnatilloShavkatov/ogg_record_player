@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:jni/jni.dart';
 import 'package:ogg_record_player/src/bindings/ogg_record_player_api.g.dart';
+import 'package:ogg_record_player/src/native_results.dart';
 import 'package:ogg_record_player/src/ogg_opus_exception.dart';
 import 'package:ogg_record_player/src/ogg_record_player_platform_interface.dart';
 import 'package:ogg_record_player/src/platform_events.dart';
@@ -93,7 +94,7 @@ class AndroidOggRecordPlayer extends OggRecordPlayerPlatform {
         $OggRecordPlayerApi$DurationCallback(
           onDuration: (bool known, double seconds) {
             if (!completer.isCompleted) {
-              completer.complete(known ? seconds : null);
+              completer.complete(durationFromNative(known: known, seconds: seconds));
             }
           },
           onDuration$async: true,
@@ -115,14 +116,7 @@ class AndroidOggRecordPlayer extends OggRecordPlayerPlatform {
     _registerListeners();
     final JString jPath = path.toJString();
     try {
-      final int recorderId = OggRecordPlayerApi.createRecorder(jPath);
-      if (recorderId < 0) {
-        throw const OggOpusRecorderException(
-          code: OggOpusRecorderException.unknown,
-          message: 'recorder path must be a non-empty string',
-        );
-      }
-      return recorderId;
+      return recorderIdFromNative(OggRecordPlayerApi.createRecorder(jPath));
     } on JThrowable catch (e) {
       throw OggOpusRecorderException(code: OggOpusRecorderException.unknown, message: e.toString());
     } finally {
