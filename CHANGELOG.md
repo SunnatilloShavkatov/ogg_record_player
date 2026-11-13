@@ -1,3 +1,12 @@
+## 2.8.1
+
+### Fixed
+- **Android:** callback and listener proxies no longer keep a JNI global reference until the next Dart GC; Dart releases its reference once Kotlin holds the proxy. A state event's error code is released even when its payload is malformed.
+
+### Changed
+- **Android:** the `OggRecordPlayerApi` JNI facade is Kotlin (`object` + `@JvmStatic`) instead of Java. Class, method and callback names are unchanged, so the Dart API and JNI signatures stay the same. `tool/jnigen.dart` reads the compiled Kotlin classes from whichever Kotlin mode built them last.
+- Example: Gradle daemon on JDK 21 (AGP 9.3.1 lint needs it), foojay resolver 1.0.0, no `android.enableJetifier` or `android.nonFinalResIds=false`.
+
 ## 2.8.0
 
 ### Changed
