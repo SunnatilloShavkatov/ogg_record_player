@@ -4,7 +4,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'ogg_record_player'
-  s.version          = '2.7.0'
+  s.version          = '2.8.0'
   s.summary          = 'An ogg opus file player and recorder for flutter.'
   s.description      = <<-DESC
 An ogg opus file player and recorder for flutter.
@@ -15,6 +15,8 @@ An ogg opus file player and recorder for flutter.
   s.source           = { :path => '.' }
   s.source_files     = 'ogg_record_player/Sources/ogg_record_player/**/*.swift',
                        'ogg_record_player/Sources/ogg_record_player_c/opusenc_set_bitrate.c',
+                       'ogg_record_player/Sources/ogg_record_player_c/ogg_record_player_darwin.m',
+                       'ogg_record_player/Sources/ogg_record_player_c/ogg_record_player_api.h',
                        'ogg_record_player/Sources/ogg_record_player_c/include/*.h'
   s.public_header_files = 'ogg_record_player/Sources/ogg_record_player_c/include/*.h'
 

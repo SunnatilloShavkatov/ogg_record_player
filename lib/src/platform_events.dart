@@ -57,3 +57,22 @@ final class RecorderFinishedEvent extends RecorderEvent {
   final int duration;
   final Uint8List waveform;
 }
+
+/// Maps the native state code of `onPlayerStateChanged` to a [PlayerState].
+PlayerState playerStateFromRaw(int state) {
+  switch (state) {
+    case 0:
+      return PlayerState.idle;
+    case 1:
+      return PlayerState.playing;
+    case 2:
+      return PlayerState.paused;
+    case 3:
+      return PlayerState.ended;
+    case 4:
+      return PlayerState.error;
+    default:
+      assert(false, 'unknown state: $state');
+      return PlayerState.error;
+  }
+}

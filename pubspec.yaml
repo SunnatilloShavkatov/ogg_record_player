@@ -1,5 +1,5 @@
 name: ogg_record_player
-version: 2.7.1
+version: 2.8.0
 description: "Play and record Ogg Opus audio on Android and iOS with a simple Flutter API."
 homepage: https://github.com/SunnatilloShavkatov/ogg_record_player
 repository: https://github.com/SunnatilloShavkatov/ogg_record_player
@@ -18,12 +18,16 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  jni: ^1.1.2
+  objective_c: ^9.6.4
   plugin_platform_interface: ^2.1.8
 
 dev_dependencies:
   analysis_lints: ^1.1.1
+  ffigen: ^23.0.0
   flutter_test:
     sdk: flutter
+  jnigen: ^1.0.1
 
 flutter:
   plugin:

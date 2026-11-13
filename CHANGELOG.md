@@ -1,3 +1,15 @@
+## 2.8.0
+
+### Changed
+- The method channel is gone. Dart now calls the native code directly: on Android through JNI (`jni` + `jnigen`, bindings in `lib/src/bindings/ogg_record_player_api.g.dart`), on iOS through the Objective-C runtime (`objective_c` + `ffigen`, bindings in `lib/src/bindings/ogg_record_player_darwin.g.dart`). The public API (`OggOpusPlayer`, `OggOpusRecorder`, `PlayerState`) is unchanged.
+- **Android:** `OggRecordPlayerPlugin` only handles the engine lifecycle; the logic moved to `OggRecordPlayerHost`, behind the `OggRecordPlayerApi` Java facade. `consumer-rules.pro` keeps the facade through R8.
+- **iOS:** `OggRecordPlayerPlugin` only handles the engine lifecycle; the logic moved to the `@objc` class `OggRecordPlayerApi`. `PlayerError` has its own file.
+- `OggRecordPlayerPlatform.instance` is `AndroidOggRecordPlayer` on Android and `DarwinOggRecordPlayer` elsewhere; `MethodChannelOggRecordPlayer` was removed.
+- Listener callbacks are delivered asynchronously, so native code never waits for Dart.
+
+### Added
+- Dependencies `jni` and `objective_c`; dev dependencies `jnigen` and `ffigen`. Regenerate the bindings with `dart run tool/jnigen.dart` and `dart run tool/ffigen.dart`.
+
 ## 2.7.1
 
 ### Changed

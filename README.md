@@ -23,7 +23,7 @@ or in `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  ogg_record_player: ^2.7.0
+  ogg_record_player: ^2.8.0
 ```
 
 Requires Dart 3.13 / Flutter 3.47 or newer.

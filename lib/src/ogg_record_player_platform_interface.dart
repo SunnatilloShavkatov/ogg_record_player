@@ -1,6 +1,8 @@
+import 'dart:io' show Platform;
 import 'dart:typed_data';
 
-import 'package:ogg_record_player/src/ogg_record_player_method_channel.dart';
+import 'package:ogg_record_player/src/ogg_record_player_android.dart';
+import 'package:ogg_record_player/src/ogg_record_player_darwin.dart';
 import 'package:ogg_record_player/src/platform_events.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
@@ -12,9 +14,10 @@ abstract class OggRecordPlayerPlatform extends PlatformInterface {
 
   static final Object _token = Object();
 
-  static OggRecordPlayerPlatform _instance = MethodChannelOggRecordPlayer();
+  static OggRecordPlayerPlatform _instance = Platform.isAndroid ? AndroidOggRecordPlayer() : DarwinOggRecordPlayer();
 
-  /// The default instance to use; [MethodChannelOggRecordPlayer] unless replaced, e.g. by a test.
+  /// The default instance to use: [AndroidOggRecordPlayer] on Android, [DarwinOggRecordPlayer] elsewhere,
+  /// unless replaced, e.g. by a test.
   static OggRecordPlayerPlatform get instance => _instance;
 
   static set instance(OggRecordPlayerPlatform instance) {

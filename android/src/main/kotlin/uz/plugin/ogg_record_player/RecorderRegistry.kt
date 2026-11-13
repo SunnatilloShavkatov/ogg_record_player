@@ -6,14 +6,13 @@ import java.io.File
 import java.util.Collections
 
 /**
- * The Dart recorders of one engine, by id. Native sessions are created per `startRecord`; events reach Dart only
- * while the engine that created the recorder is still attached ([emit] drops the rest).
+ * The Dart recorders of one engine, by id. Native sessions are created per `startRecord`; [events] is the
+ * engine's host, which drops them once the engine detached.
  */
 internal class RecorderRegistry(
     private val context: Context,
     private val generateId: () -> Int,
-    private val engineGeneration: () -> Int,
-    private val emit: (generation: Int, method: String, arguments: Map<String, Any?>) -> Unit,
+    private val events: OggRecordPlayerApi.RecorderListener,
 ) {
     /**
      * One Dart recorder. Its file and callback live as long as the recorder; every `startRecord` records a fresh
@@ -32,22 +31,13 @@ internal class RecorderRegistry(
 
     fun create(path: String): Int {
         val id = generateId()
-        val generation = engineGeneration()
         val callback = object : OpusAudioRecorder.Callback {
-            override fun onCancel(reason: Int) {
-                emit(generation, "onRecorderCanceled", mapOf("recorderId" to id, "reason" to reason))
-            }
+            override fun onCancel(reason: Int) = events.onCanceled(id, reason)
 
-            override fun onStartFailed(message: String) {
-                emit(generation, "onRecorderStartFailed", mapOf("recorderId" to id, "error" to message))
-            }
+            override fun onStartFailed(message: String) = events.onStartFailed(id, message)
 
-            override fun sendAudio(file: File, duration: Long, waveForm: ByteArray) {
-                emit(
-                    generation, "onRecorderFinished",
-                    mapOf("recorderId" to id, "duration" to duration, "waveform" to waveForm)
-                )
-            }
+            override fun sendAudio(file: File, duration: Long, waveForm: ByteArray) =
+                events.onFinished(id, duration, waveForm)
         }
         slots[id] = RecorderSlot(File(path), callback)
         return id

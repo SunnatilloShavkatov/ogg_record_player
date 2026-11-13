@@ -3,39 +3,21 @@ plugins {
 }
 
 group = "uz.plugin.ogg_record_player"
-version = "2.7.0"
-
-buildscript {
-    repositories {
-        google()
-        mavenCentral()
-    }
-    dependencies {
-        classpath("com.android.tools.build:gradle:9.1.0")
-    }
-}
-
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
+version = "2.8.0"
 
 android {
     namespace = "uz.plugin.ogg_record_player"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         minSdk = 26
+        consumerProguardFiles("consumer-rules.pro")
     }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-
-    sourceSets["main"].java.srcDirs("src/main/kotlin")
 
     externalNativeBuild {
         cmake {

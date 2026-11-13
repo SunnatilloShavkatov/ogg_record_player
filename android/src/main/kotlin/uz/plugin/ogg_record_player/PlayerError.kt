@@ -1,7 +1,6 @@
 package uz.plugin.ogg_record_player
 
 import androidx.media3.common.PlaybackException
-import io.flutter.plugin.common.MethodChannel
 import java.io.File
 import java.io.IOException
 import java.net.SocketTimeoutException
@@ -36,10 +35,6 @@ internal enum class PlayerError(val code: String, val message: String) {
             else -> UNKNOWN
         }
     }
-}
-
-internal fun MethodChannel.Result.fail(playerError: PlayerError, details: String?) {
-    error(playerError.code, playerError.message, details)
 }
 
 /** Reads only the first four bytes of the file. */

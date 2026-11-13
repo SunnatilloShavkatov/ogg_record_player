@@ -144,7 +144,9 @@ void main() {
 
       await expectLater(
         recorder.start(),
-        throwsA(isA<OggOpusRecorderException>().having((OggOpusRecorderException e) => e.message, 'message', 'no recorder')),
+        throwsA(
+          isA<OggOpusRecorderException>().having((OggOpusRecorderException e) => e.message, 'message', 'no recorder'),
+        ),
       );
       expect(recorder.startError?.message, 'no recorder');
       await expectLater(recorder.stop(), completes);
