@@ -228,15 +228,19 @@ class AndroidOggRecordPlayer extends OggRecordPlayerPlatform {
         ),
         onStartFailed$async: true,
         onFinished: (int recorderId, int durationMillis, JByteArray? waveform) {
-          final Int8List raw = waveform == null ? Int8List(0) : waveform.getRange(0, waveform.length);
-          _recorderEvents.add(
-            RecorderFinishedEvent(
-              recorderId: recorderId,
-              duration: durationMillis,
-              waveform: raw.buffer.asUint8List(raw.offsetInBytes, raw.length),
-            ),
-          );
-          waveform?.release();
+          // Released even when copying the waveform fails, so the JNI reference never outlives the event.
+          try {
+            final Int8List raw = waveform == null ? Int8List(0) : waveform.getRange(0, waveform.length);
+            _recorderEvents.add(
+              RecorderFinishedEvent(
+                recorderId: recorderId,
+                duration: durationMillis,
+                waveform: raw.buffer.asUint8List(raw.offsetInBytes, raw.length),
+              ),
+            );
+          } finally {
+            waveform?.release();
+          }
         },
         onFinished$async: true,
       ),
