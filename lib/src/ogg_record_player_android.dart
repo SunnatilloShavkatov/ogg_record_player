@@ -69,7 +69,7 @@ class AndroidOggRecordPlayer extends OggRecordPlayerPlatform {
           onDone$async: true,
         ),
       );
-      OggRecordPlayerApi.warmUp(callback);
+      handOver(callback, OggRecordPlayerApi.warmUp);
     } on Object {
       // Warming up is an optimisation; nothing to recover.
       return Future<void>.value();
@@ -100,7 +100,10 @@ class AndroidOggRecordPlayer extends OggRecordPlayerPlatform {
           onDuration$async: true,
         ),
       );
-      OggRecordPlayerApi.getDuration(playerId, callback);
+      handOver(
+        callback,
+        (OggRecordPlayerApi$DurationCallback proxy) => OggRecordPlayerApi.getDuration(playerId, proxy),
+      );
     } on Object {
       return Future<double?>.value();
     }
@@ -169,7 +172,7 @@ class AndroidOggRecordPlayer extends OggRecordPlayerPlatform {
           onFailed$async: true,
         ),
       );
-      start(callback);
+      handOver(callback, start);
     } on JThrowable catch (e) {
       return Future<int>.error(OggOpusPlayerException(code: OggOpusPlayerException.unknown, message: e.toString()));
     }
@@ -193,6 +196,8 @@ class AndroidOggRecordPlayer extends OggRecordPlayerPlatform {
     final OggRecordPlayerApi$PlayerListener playerListener = OggRecordPlayerApi$PlayerListener.implement(
       $OggRecordPlayerApi$PlayerListener(
         onStateChanged: (int playerId, int state, double position, double duration, double speed, JString? errorCode) {
+          // Read first so the JNI string is released even when the payload below is malformed.
+          final String? errorCodeValue = errorCode?.toDartString(releaseOriginal: true);
           // A malformed payload drops that one callback instead of failing the native side.
           try {
             _playerStateChanges.add(
@@ -202,7 +207,7 @@ class AndroidOggRecordPlayer extends OggRecordPlayerPlatform {
                 position: position,
                 duration: duration,
                 speed: speed,
-                errorCode: errorCode?.toDartString(releaseOriginal: true),
+                errorCode: errorCodeValue,
               ),
             );
           } on Object {
@@ -239,6 +244,23 @@ class AndroidOggRecordPlayer extends OggRecordPlayerPlatform {
         onFinished$async: true,
       ),
     );
-    OggRecordPlayerApi.setListeners(playerListener, recorderListener);
+    handOver(
+      playerListener,
+      (OggRecordPlayerApi$PlayerListener player) => handOver(
+        recorderListener,
+        (OggRecordPlayerApi$RecorderListener recorder) => OggRecordPlayerApi.setListeners(player, recorder),
+      ),
+    );
+  }
+}
+
+/// Passes a Dart-implemented [proxy] to native code and drops Dart's own reference to it. Kotlin keeps the proxy
+/// alive for as long as it needs it, and its port closes when Java collects it; without the release every call
+/// would pin a JNI global reference until the next Dart GC.
+void handOver<T extends JObject>(T proxy, void Function(T proxy) pass) {
+  try {
+    pass(proxy);
+  } finally {
+    proxy.release();
   }
 }
