@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:typed_data';
+import 'dart:ui' show PlatformDispatcher;
 
 import 'package:jni/jni.dart';
 import 'package:ogg_record_player/src/bindings/ogg_record_player_api.g.dart';
@@ -19,6 +20,9 @@ class AndroidOggRecordPlayer extends OggRecordPlayerPlatform {
 
   bool _hasListeners = false;
 
+  /// Routes calls that create players, recorders or listeners to this engine's native host; calls by id need not.
+  int get _engineId => engineIdForNative(PlatformDispatcher.instance.engineId);
+
   @override
   Stream<PlayerStateEvent> get playerStateChanges {
     _registerListeners();
@@ -33,20 +37,23 @@ class AndroidOggRecordPlayer extends OggRecordPlayerPlatform {
 
   @override
   Future<int> createPlayerFromFile(String path) => _createPlayer(
-    (OggRecordPlayerApi$CreateCallback callback) =>
-        using((Arena arena) => OggRecordPlayerApi.createFromFile(path.toJString()..releasedBy(arena), callback)),
+    (OggRecordPlayerApi$CreateCallback callback) => using(
+      (Arena arena) => OggRecordPlayerApi.createFromFile(_engineId, path.toJString()..releasedBy(arena), callback),
+    ),
   );
 
   @override
   Future<int> createPlayerFromUrl(String url) => _createPlayer(
-    (OggRecordPlayerApi$CreateCallback callback) =>
-        using((Arena arena) => OggRecordPlayerApi.createFromUrl(url.toJString()..releasedBy(arena), callback)),
+    (OggRecordPlayerApi$CreateCallback callback) => using(
+      (Arena arena) => OggRecordPlayerApi.createFromUrl(_engineId, url.toJString()..releasedBy(arena), callback),
+    ),
   );
 
   @override
   Future<int> createPlayerFromBytes(Uint8List bytes) => _createPlayer(
     (OggRecordPlayerApi$CreateCallback callback) => using(
       (Arena arena) => OggRecordPlayerApi.createFromBytes(
+        _engineId,
         (JByteArray(bytes.length)
             ..setRange(0, bytes.length, bytes.buffer.asInt8List(bytes.offsetInBytes, bytes.length)))
           ..releasedBy(arena),
@@ -119,7 +126,7 @@ class AndroidOggRecordPlayer extends OggRecordPlayerPlatform {
     _registerListeners();
     final JString jPath = path.toJString();
     try {
-      return recorderIdFromNative(OggRecordPlayerApi.createRecorder(jPath));
+      return recorderIdFromNative(OggRecordPlayerApi.createRecorder(_engineId, jPath));
     } on JThrowable catch (e) {
       throw OggOpusRecorderException(code: OggOpusRecorderException.unknown, message: e.toString());
     } finally {
@@ -248,7 +255,7 @@ class AndroidOggRecordPlayer extends OggRecordPlayerPlatform {
       playerListener,
       (OggRecordPlayerApi$PlayerListener player) => handOver(
         recorderListener,
-        (OggRecordPlayerApi$RecorderListener recorder) => OggRecordPlayerApi.setListeners(player, recorder),
+        (OggRecordPlayerApi$RecorderListener recorder) => OggRecordPlayerApi.setListeners(_engineId, player, recorder),
       ),
     );
   }

@@ -26,6 +26,8 @@ internal class RecorderRegistry(
 
     val isRecording: Boolean get() = slots.values.toList().any { it.session?.isActive == true }
 
+    fun contains(id: Int): Boolean = slots.containsKey(id)
+
     fun hasRecordPermission(): Boolean =
         context.checkCallingOrSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_DENIED
 

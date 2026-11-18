@@ -26,6 +26,11 @@ void main() {
     );
   });
 
+  test('a missing engine id goes to native as 0, any other id passes through', () {
+    expect(engineIdForNative(null), 0);
+    expect(engineIdForNative(7), 7);
+  });
+
   test('isRemoteAudioPath accepts only http and https', () {
     expect(isRemoteAudioPath('https://example.com/a.ogg'), isTrue);
     expect(isRemoteAudioPath('HTTP://example.com/a.ogg'), isTrue);

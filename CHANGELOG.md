@@ -1,3 +1,8 @@
+## Unreleased
+
+### Fixed
+- Apps that run more than one Flutter engine: each engine now has its own players, recorders and listeners on Android and iOS, and closing one engine no longer stops playback or recording in another.
+
 ## 2.8.1
 
 ### Fixed

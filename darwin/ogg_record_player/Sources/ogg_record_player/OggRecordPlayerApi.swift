@@ -10,18 +10,20 @@ import Foundation
 public final class OggRecordPlayerApi: NSObject {
   public typealias CreateCallback = (Int, String?, String?, String?) -> Void
 
-  private static var players: [Int: OggOpusPlayer] = [:]
-  private static var recorders: [Int: OggOpusRecorder] = [:]
-  private static var lastGeneratedId = 0
+  /// Engine keys are `engineIdentifier` (what Dart reads from `PlatformDispatcher.instance.engineId`). This is what
+  /// Dart sends when it has none, such as from a background isolate; Flutter never gives an engine this id.
+  static let noEngine: Int64 = 0
 
-  private static var playerListener: ((Int, Int, Double, Double, Double, String?) -> Void)?
-  static var recorderCanceled: ((Int, Int) -> Void)?
-  static var recorderStartFailed: ((Int, String) -> Void)?
-  static var recorderFinished: ((Int, Int, Data) -> Void)?
+  /// Each attached engine's players, recorders and listeners. Main thread only.
+  private static var scopes: [Int64: EngineScope] = [:]
+  private static var lastGeneratedId = 0
+  /// For registrars that do not expose their engine identifier: negative, so never a real identifier.
+  private static var lastSyntheticKey: Int64 = 0
 
   /// Recordings stop and finish on their own after 3 minutes, like Android's `MAX_RECORD_DURATION`.
   private static let maxRecordingDuration: TimeInterval = 180
 
+  /// Ids are unique across engines, so a call by id finds its engine without one.
   private static func generateId() -> Int {
     lastGeneratedId += 1
     return lastGeneratedId
@@ -35,51 +37,95 @@ public final class OggRecordPlayerApi: NSObject {
     Thread.isMainThread ? work() : DispatchQueue.main.sync(execute: work)
   }
 
-  /// Engine teardown (app closed or Flutter engine destroyed): free every native player and recorder.
-  static func detach() {
-    onMain {
-      players.values.forEach { $0.stop() }
-      players.removeAll()
-      recorders.values.forEach { $0.cancel(for: .userInitiated) }
-      recorders.removeAll()
-      playerListener = nil
-      recorderCanceled = nil
-      recorderStartFailed = nil
-      recorderFinished = nil
+  // MARK: Engines
+
+  /// The key `registrar`'s engine is kept under: its identifier when the registrar exposes one (Flutter 3.50+),
+  /// else a synthetic key that only the single-engine fallback in `scope(forEngine:)` can reach.
+  static func engineKey(of registrar: AnyObject) -> Int64 {
+    let selector = NSSelectorFromString("engineIdentifier")
+    if let object = registrar as? NSObject, object.responds(to: selector),
+       let identifier = object.value(forKey: "engineIdentifier") as? NSNumber,
+       identifier.int64Value != noEngine {
+      return identifier.int64Value
     }
+    return onMainSync {
+      lastSyntheticKey -= 1
+      return lastSyntheticKey
+    }
+  }
+
+  /// Starts a scope for an attaching engine; one left under the same key is released first.
+  static func attach(engine key: Int64) -> EngineScope {
+    onMainSync {
+      let scope = EngineScope()
+      scopes.updateValue(scope, forKey: key)?.detach()
+      return scope
+    }
+  }
+
+  /// Engine teardown (app closed or Flutter engine destroyed): frees that engine's players and recorders only.
+  static func detach(engine key: Int64, scope: EngineScope) {
+    onMain {
+      if scopes[key] === scope {
+        scopes.removeValue(forKey: key)
+      }
+      scope.detach()
+    }
+  }
+
+  /// The calling engine's scope. Without an exact match the only attached scope is used; with several attached,
+  /// `nil`, so a call never lands in another engine.
+  private static func scope(forEngine engineId: Int64) -> EngineScope? {
+    if engineId != noEngine, let scope = scopes[engineId] {
+      return scope
+    }
+    return scopes.count == 1 ? scopes.values.first : nil
+  }
+
+  /// The scope that created player or recorder `id`.
+  private static func scope(owning id: Int) -> EngineScope? {
+    scopes.values.first { $0.owns(id) }
+  }
+
+  private static func player(_ id: Int) -> OggOpusPlayer? {
+    scope(owning: id)?.players[id]
+  }
+
+  private static func recorder(_ id: Int) -> OggOpusRecorder? {
+    scope(owning: id)?.recorders[id]
   }
 
   // MARK: Listeners
 
-  @objc public static func setPlayerListener(_ listener: ((Int, Int, Double, Double, Double, String?) -> Void)?) {
-    onMain { playerListener = listener }
+  @objc(setPlayerListenerForEngine:listener:)
+  public static func setPlayerListener(engine engineId: Int64, _ listener: ((Int, Int, Double, Double, Double, String?) -> Void)?) {
+    onMain { scope(forEngine: engineId)?.playerListener = listener }
   }
 
-  @objc public static func setRecorderListeners(
+  @objc(setRecorderListenersForEngine:canceled:startFailed:finished:)
+  public static func setRecorderListeners(
+    engine engineId: Int64,
     canceled: ((Int, Int) -> Void)?,
     startFailed: ((Int, String) -> Void)?,
     finished: ((Int, Int, Data) -> Void)?
   ) {
     onMain {
-      recorderCanceled = canceled
-      recorderStartFailed = startFailed
-      recorderFinished = finished
+      guard let scope = scope(forEngine: engineId) else { return }
+      scope.recorderCanceled = canceled
+      scope.recorderStartFailed = startFailed
+      scope.recorderFinished = finished
     }
-  }
-
-  private static func emitState(id: Int, _ player: OggOpusPlayer) {
-    playerListener?(id, player.status.rawValue, player.currentTime, player.duration ?? 0, Double(player.playRate), nil)
   }
 
   // MARK: Players
 
-  /// Registers a created player; `make` throws when the source cannot be opened.
-  private static func registerPlayer(_ callback: CreateCallback, make: () throws -> OggOpusPlayer) {
+  /// Registers a created player in `scope`; `make` throws when the source cannot be opened.
+  private static func registerPlayer(in scope: EngineScope, _ callback: CreateCallback, make: () throws -> OggOpusPlayer) {
     do {
       let player = try make()
       let id = generateId()
-      player.onStatusChanged = { player in emitState(id: id, player) }
-      players[id] = player
+      player.onStatusChanged = { [weak scope] player in scope?.emitState(id: id, player) }
+      scope.players[id] = player
       callback(id, nil, nil, nil)
     } catch {
       fail(callback, PlayerError.from(error), error.localizedDescription)
@@ -90,8 +136,17 @@ public final class OggRecordPlayerApi: NSObject {
     callback(-1, error.rawValue, error.message, details)
   }
 
-  @objc public static func createFromFile(_ path: String, callback: @escaping CreateCallback) {
+  private static func failDetached(_ callback: CreateCallback) {
+    fail(callback, .unknown, "the calling Flutter engine is not attached")
+  }
+
+  @objc(createFromFileForEngine:path:callback:)
+  public static func createFromFile(engine engineId: Int64, _ path: String, callback: @escaping CreateCallback) {
     onMain {
+      guard let scope = scope(forEngine: engineId) else {
+        failDetached(callback)
+        return
+      }
       guard !path.isEmpty else {
         fail(callback, .invalidArgument, "path must be a non-empty string")
         return
@@ -100,29 +155,45 @@ public final class OggRecordPlayerApi: NSObject {
         fail(callback, .fileNotFound, path)
         return
       }
-      registerPlayer(callback, make: { try OggOpusPlayer(path: path) })
+      registerPlayer(in: scope, callback, make: { try OggOpusPlayer(path: path) })
     }
   }
 
-  @objc public static func createFromUrl(_ string: String, callback: @escaping CreateCallback) {
+  @objc(createFromUrlForEngine:url:callback:)
+  public static func createFromUrl(engine engineId: Int64, _ string: String, callback: @escaping CreateCallback) {
     guard let url = URL(string: string), RemoteAudioLoader.isRemote(url) else {
       fail(callback, .invalidArgument, "url must be an http or https URL")
       return
     }
-    RemoteAudioLoader.shared.load(url) { download in
-      onMain {
-        switch download {
-        case let .success(data):
-          registerPlayer(callback, make: { try OggOpusPlayer(data: data) })
-        case let .failure(error):
-          fail(callback, PlayerError.from(error), error.localizedDescription)
+    onMain {
+      guard let scope = scope(forEngine: engineId) else {
+        failDetached(callback)
+        return
+      }
+      RemoteAudioLoader.shared.load(url) { [weak scope] download in
+        onMain {
+          guard let scope = scope, scope.isAttached else {
+            fail(callback, .unknown, "Flutter engine detached before the download completed")
+            return
+          }
+          switch download {
+          case let .success(data):
+            registerPlayer(in: scope, callback, make: { try OggOpusPlayer(data: data) })
+          case let .failure(error):
+            fail(callback, PlayerError.from(error), error.localizedDescription)
+          }
         }
       }
     }
   }
 
-  @objc public static func createFromBytes(_ bytes: Data, callback: @escaping CreateCallback) {
+  @objc(createFromBytesForEngine:bytes:callback:)
+  public static func createFromBytes(engine engineId: Int64, _ bytes: Data, callback: @escaping CreateCallback) {
     onMain {
+      guard let scope = scope(forEngine: engineId) else {
+        failDetached(callback)
+        return
+      }
       guard !bytes.isEmpty else {
         fail(callback, .invalidArgument, "bytes must not be empty")
         return
@@ -131,7 +202,7 @@ public final class OggRecordPlayerApi: NSObject {
         fail(callback, .invalidFile, "bytes are not an Ogg stream")
         return
       }
-      registerPlayer(callback, make: { try OggOpusPlayer(data: bytes) })
+      registerPlayer(in: scope, callback, make: { try OggOpusPlayer(data: bytes) })
     }
   }
 
@@ -152,21 +223,21 @@ public final class OggRecordPlayerApi: NSObject {
   }
 
   @objc public static func play(_ playerId: Int) {
-    onMain { players[playerId]?.play() }
+    onMain { player(playerId)?.play() }
   }
 
   @objc public static func pause(_ playerId: Int) {
-    onMain { players[playerId]?.pause() }
+    onMain { player(playerId)?.pause() }
   }
 
   @objc public static func stop(_ playerId: Int) {
-    onMain { players.removeValue(forKey: playerId)?.stop() }
+    onMain { scope(owning: playerId)?.players.removeValue(forKey: playerId)?.stop() }
   }
 
   /// Fractional seconds, matching Android; unknown when the stream does not report its length.
   @objc public static func getDuration(_ playerId: Int, callback: @escaping (Bool, Double) -> Void) {
     onMain {
-      if let duration = players[playerId]?.duration {
+      if let duration = player(playerId)?.duration {
         callback(true, duration)
       } else {
         callback(false, 0)
@@ -176,39 +247,41 @@ public final class OggRecordPlayerApi: NSObject {
 
   @objc public static func setPlaybackSpeed(_ playerId: Int, speed: Double) {
     onMain {
-      guard let player = players[playerId] else { return }
+      guard let scope = scope(owning: playerId), let player = scope.players[playerId] else { return }
       player.playRate = Float(speed)
-      emitState(id: playerId, player)
+      scope.emitState(id: playerId, player)
     }
   }
 
   // MARK: Recorders
 
-  /// Returns the recorder id, or -1 when `path` is empty.
-  @objc public static func createRecorder(_ path: String) -> Int {
+  /// Returns the recorder id, or -1 when `path` is empty or the calling engine is not attached.
+  @objc(createRecorderForEngine:path:)
+  public static func createRecorder(engine engineId: Int64, _ path: String) -> Int {
     guard !path.isEmpty else { return -1 }
     return onMainSync {
+      guard let scope = scope(forEngine: engineId) else { return -1 }
       let recorder = OggOpusRecorder(path: path)
       let id = generateId()
-      recorder.delegate = RecorderEventForwarder(recorderId: id)
-      recorders[id] = recorder
+      recorder.delegate = RecorderEventForwarder(recorderId: id, scope: scope)
+      scope.recorders[id] = recorder
       return id
     }
   }
 
   @objc public static func startRecord(_ recorderId: Int) {
-    onMain { recorders[recorderId]?.record(for: maxRecordingDuration) }
+    onMain { recorder(recorderId)?.record(for: maxRecordingDuration) }
   }
 
   @objc public static func stopRecord(_ recorderId: Int) {
-    onMain { recorders[recorderId]?.stop() }
+    onMain { recorder(recorderId)?.stop() }
   }
 
   /// Answers once the recording released the audio session: a `play` sent right after the Dart `dispose()`
   /// would otherwise still find the recorder owning it and be refused.
   @objc public static func destroyRecorder(_ recorderId: Int, callback: @escaping () -> Void) {
     onMain {
-      guard let recorder = recorders.removeValue(forKey: recorderId) else {
+      guard let scope = scope(owning: recorderId), let recorder = scope.recorders.removeValue(forKey: recorderId) else {
         callback()
         return
       }
@@ -217,12 +290,50 @@ public final class OggRecordPlayerApi: NSObject {
   }
 }
 
-/// Forwards one recorder's events to the listeners Dart registered.
+/// One attached engine's players, recorders and the listeners its Dart side registered. Main thread only. Once
+/// detached it emits nothing more, so a detached engine's events never reach another one.
+final class EngineScope {
+  var players: [Int: OggOpusPlayer] = [:]
+  var recorders: [Int: OggOpusRecorder] = [:]
+
+  var playerListener: ((Int, Int, Double, Double, Double, String?) -> Void)?
+  var recorderCanceled: ((Int, Int) -> Void)?
+  var recorderStartFailed: ((Int, String) -> Void)?
+  var recorderFinished: ((Int, Int, Data) -> Void)?
+
+  private(set) var isAttached = true
+
+  func owns(_ id: Int) -> Bool {
+    players[id] != nil || recorders[id] != nil
+  }
+
+  func emitState(id: Int, _ player: OggOpusPlayer) {
+    guard isAttached else { return }
+    playerListener?(id, player.status.rawValue, player.currentTime, player.duration ?? 0, Double(player.playRate), nil)
+  }
+
+  /// Releases every player and recorder and silences later events.
+  func detach() {
+    isAttached = false
+    playerListener = nil
+    recorderCanceled = nil
+    recorderStartFailed = nil
+    recorderFinished = nil
+    players.values.forEach { $0.stop() }
+    players.removeAll()
+    recorders.values.forEach { $0.cancel(for: .userInitiated) }
+    recorders.removeAll()
+  }
+}
+
+/// Forwards one recorder's events to the listeners its engine's Dart side registered.
 final class RecorderEventForwarder: OggOpusRecorderDelegate {
   let recorderId: Int
+  private weak var scope: EngineScope?
 
-  init(recorderId: Int) {
+  init(recorderId: Int, scope: EngineScope) {
     self.recorderId = recorderId
+    self.scope = scope
   }
 
   func oggOpusRecorderIsWaitingForActivation(_ recorder: OggOpusRecorder) {}
@@ -230,15 +341,15 @@ final class RecorderEventForwarder: OggOpusRecorderDelegate {
   func oggOpusRecorderDidStartRecording(_ recorder: OggOpusRecorder) {}
 
   func oggOpusRecorder(_ recorder: OggOpusRecorder, didCancelRecordingForReason reason: OggOpusRecorder.CancelledReason, userInfo: [String: Any]?) {
-    OggRecordPlayerApi.recorderCanceled?(recorderId, Int(reason.rawValue))
+    scope?.recorderCanceled?(recorderId, Int(reason.rawValue))
   }
 
   func oggOpusRecorder(_ recorder: OggOpusRecorder, didFailRecordingWithError error: Error) {
-    OggRecordPlayerApi.recorderStartFailed?(recorderId, error.localizedDescription)
+    scope?.recorderStartFailed?(recorderId, error.localizedDescription)
   }
 
   func oggOpusRecorder(_ recorder: OggOpusRecorder, didFinishRecordingWithMetadata data: AudioMetadata) {
-    OggRecordPlayerApi.recorderFinished?(recorderId, Int(data.duration), Data(data.waveform))
+    scope?.recorderFinished?(recorderId, Int(data.duration), Data(data.waveform))
   }
 
   func oggOpusRecorderDidDetectAudioSessionInterruptionEnd(_ recorder: OggOpusRecorder) {}

@@ -14,6 +14,7 @@ import uz.plugin.ogg_record_player.OggRecordPlayerApi.RecorderListener
 import java.io.File
 import java.io.IOException
 import java.util.Collections
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.thread
 
 /**
@@ -25,9 +26,31 @@ import kotlin.concurrent.thread
 internal class OggRecordPlayerHost(private val context: Context) {
 
     companion object {
-        /** The host of the attached engine; `null` while none is attached. */
-        @Volatile
-        var current: OggRecordPlayerHost? = null
+        /** What Dart sends when it has no engine id (a background isolate); Flutter numbers engines from 1. */
+        const val NO_ENGINE = 0L
+
+        /** The host of every attached engine, by engine id. */
+        private val hosts = ConcurrentHashMap<Long, OggRecordPlayerHost>()
+
+        fun attach(engineId: Long, host: OggRecordPlayerHost) {
+            hosts.put(engineId, host)?.detach()
+        }
+
+        /** Releases [host] and forgets it, unless another host already replaced it for [engineId]. */
+        fun detach(engineId: Long, host: OggRecordPlayerHost) {
+            hosts.remove(engineId, host)
+            host.detach()
+        }
+
+        /**
+         * The host of the calling engine. Without an engine id the only attached host is used; with several
+         * attached, `null`, so a call never lands in another engine.
+         */
+        fun forEngine(engineId: Long): OggRecordPlayerHost? =
+            if (engineId == NO_ENGINE) hosts.values.singleOrNull() else hosts[engineId]
+
+        /** The host that created player or recorder [id]; ids are unique across engines. */
+        fun owning(id: Int): OggRecordPlayerHost? = hosts.values.firstOrNull { it.owns(id) }
 
         private var lastGeneratedId = 0
 
@@ -80,6 +103,8 @@ internal class OggRecordPlayerHost(private val context: Context) {
             if (attached) recorderListener?.onFinished(recorderId, durationMillis, waveform)
         }
     })
+
+    fun owns(id: Int): Boolean = players.containsKey(id) || recorders.contains(id)
 
     fun setListeners(playerListener: PlayerListener?, recorderListener: RecorderListener?) {
         this.playerListener = playerListener

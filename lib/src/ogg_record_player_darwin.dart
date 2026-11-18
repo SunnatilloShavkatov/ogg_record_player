@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ffi' as ffi;
 import 'dart:typed_data';
+import 'dart:ui' show PlatformDispatcher;
 
 import 'package:objective_c/objective_c.dart' as objc;
 import 'package:ogg_record_player/src/bindings/ogg_record_player_darwin.g.dart';
@@ -21,6 +22,9 @@ class DarwinOggRecordPlayer extends OggRecordPlayerPlatform {
 
   bool _hasListeners = false;
 
+  /// Routes calls that create players, recorders or listeners to this engine's native scope; calls by id need not.
+  int get _engineId => engineIdForNative(PlatformDispatcher.instance.engineId);
+
   @override
   Stream<PlayerStateEvent> get playerStateChanges {
     _registerListeners();
@@ -34,16 +38,22 @@ class DarwinOggRecordPlayer extends OggRecordPlayerPlatform {
   }
 
   @override
-  Future<int> createPlayerFromFile(String path) =>
-      _createPlayer((CreateBlock callback) => OggRecordPlayerApi.createFromFile(path.toNSString(), callback: callback));
+  Future<int> createPlayerFromFile(String path) => _createPlayer(
+    (CreateBlock callback) =>
+        OggRecordPlayerApi.createFromFileForEngine(_engineId, path: path.toNSString(), callback: callback),
+  );
 
   @override
-  Future<int> createPlayerFromUrl(String url) =>
-      _createPlayer((CreateBlock callback) => OggRecordPlayerApi.createFromUrl(url.toNSString(), callback: callback));
+  Future<int> createPlayerFromUrl(String url) => _createPlayer(
+    (CreateBlock callback) =>
+        OggRecordPlayerApi.createFromUrlForEngine(_engineId, url: url.toNSString(), callback: callback),
+  );
 
   @override
-  Future<int> createPlayerFromBytes(Uint8List bytes) =>
-      _createPlayer((CreateBlock callback) => OggRecordPlayerApi.createFromBytes(bytes.toNSData(), callback: callback));
+  Future<int> createPlayerFromBytes(Uint8List bytes) => _createPlayer(
+    (CreateBlock callback) =>
+        OggRecordPlayerApi.createFromBytesForEngine(_engineId, bytes: bytes.toNSData(), callback: callback),
+  );
 
   @override
   Future<void> warmUp() {
@@ -97,7 +107,7 @@ class DarwinOggRecordPlayer extends OggRecordPlayerPlatform {
   @override
   Future<int> createRecorder(String path) async {
     _registerListeners();
-    return recorderIdFromNative(OggRecordPlayerApi.createRecorder(path.toNSString()));
+    return recorderIdFromNative(OggRecordPlayerApi.createRecorderForEngine(_engineId, path: path.toNSString()));
   }
 
   @override
@@ -172,8 +182,9 @@ class DarwinOggRecordPlayer extends OggRecordPlayerPlatform {
       return;
     }
     _hasListeners = true;
-    OggRecordPlayerApi.setPlayerListener(
-      ObjCBlock_ffiVoid_NSInteger_NSInteger_ffiDouble_ffiDouble_ffiDouble_NSString.listener((
+    OggRecordPlayerApi.setPlayerListenerForEngine(
+      _engineId,
+      listener: ObjCBlock_ffiVoid_NSInteger_NSInteger_ffiDouble_ffiDouble_ffiDouble_NSString.listener((
         int playerId,
         int state,
         double position,
@@ -198,8 +209,9 @@ class DarwinOggRecordPlayer extends OggRecordPlayerPlatform {
         }
       }),
     );
-    OggRecordPlayerApi.setRecorderListenersWithCanceled(
-      ObjCBlock_ffiVoid_NSInteger_NSInteger.listener(
+    OggRecordPlayerApi.setRecorderListenersForEngine(
+      _engineId,
+      canceled: ObjCBlock_ffiVoid_NSInteger_NSInteger.listener(
         (int recorderId, int reason) =>
             _recorderEvents.add(RecorderCanceledEvent(recorderId: recorderId, reason: reason)),
       ),

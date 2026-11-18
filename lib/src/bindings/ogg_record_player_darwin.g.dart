@@ -1216,40 +1216,66 @@ extension type OggRecordPlayerApi._(objc.ObjCObject object$) implements objc.Obj
     return OggRecordPlayerApi.fromPointer($ret, retain: false, release: true);
   }
 
-  /// createFromBytes:callback:
-  static void createFromBytes(
-    objc.NSData bytes, {
+  /// createFromBytesForEngine:bytes:callback:
+  static void createFromBytesForEngine(
+    int engineId, {
+    required objc.NSData bytes,
     required objc.ObjCBlock<ffi.Void Function(ffi.Long, objc.NSString?, objc.NSString?, objc.NSString?)> callback,
   }) {
     final _$$ref = bytes.ref;
     final _$$ref$1 = callback.ref;
-    _objc_msgSend_o762yo(_class_OggRecordPlayerApi, _sel_createFromBytes_callback_, _$$ref.pointer, _$$ref$1.pointer);
+    _objc_msgSend_1bf2hie(
+      _class_OggRecordPlayerApi,
+      _sel_createFromBytesForEngine_bytes_callback_,
+      engineId,
+      _$$ref.pointer,
+      _$$ref$1.pointer,
+    );
   }
 
-  /// createFromFile:callback:
-  static void createFromFile(
-    objc.NSString path, {
+  /// createFromFileForEngine:path:callback:
+  static void createFromFileForEngine(
+    int engineId, {
+    required objc.NSString path,
     required objc.ObjCBlock<ffi.Void Function(ffi.Long, objc.NSString?, objc.NSString?, objc.NSString?)> callback,
   }) {
     final _$$ref = path.ref;
     final _$$ref$1 = callback.ref;
-    _objc_msgSend_o762yo(_class_OggRecordPlayerApi, _sel_createFromFile_callback_, _$$ref.pointer, _$$ref$1.pointer);
+    _objc_msgSend_1bf2hie(
+      _class_OggRecordPlayerApi,
+      _sel_createFromFileForEngine_path_callback_,
+      engineId,
+      _$$ref.pointer,
+      _$$ref$1.pointer,
+    );
   }
 
-  /// createFromUrl:callback:
-  static void createFromUrl(
-    objc.NSString string, {
+  /// createFromUrlForEngine:url:callback:
+  static void createFromUrlForEngine(
+    int engineId, {
+    required objc.NSString url,
     required objc.ObjCBlock<ffi.Void Function(ffi.Long, objc.NSString?, objc.NSString?, objc.NSString?)> callback,
   }) {
-    final _$$ref = string.ref;
+    final _$$ref = url.ref;
     final _$$ref$1 = callback.ref;
-    _objc_msgSend_o762yo(_class_OggRecordPlayerApi, _sel_createFromUrl_callback_, _$$ref.pointer, _$$ref$1.pointer);
+    _objc_msgSend_1bf2hie(
+      _class_OggRecordPlayerApi,
+      _sel_createFromUrlForEngine_url_callback_,
+      engineId,
+      _$$ref.pointer,
+      _$$ref$1.pointer,
+    );
   }
 
-  /// createRecorder:
-  static int createRecorder(objc.NSString path) {
+  /// createRecorderForEngine:path:
+  static int createRecorderForEngine(int engineId, {required objc.NSString path}) {
     final _$$ref = path.ref;
-    return _objc_msgSend_1r6ymhb(_class_OggRecordPlayerApi, _sel_createRecorder_, _$$ref.pointer);
+    return _objc_msgSend_aopaxd(
+      _class_OggRecordPlayerApi,
+      _sel_createRecorderForEngine_path_,
+      engineId,
+      _$$ref.pointer,
+    );
   }
 
   /// destroyRecorder:callback:
@@ -1285,26 +1311,34 @@ extension type OggRecordPlayerApi._(objc.ObjCObject object$) implements objc.Obj
     _objc_msgSend_wtd09g(_class_OggRecordPlayerApi, _sel_setPlaybackSpeed_speed_, playerId, speed);
   }
 
-  /// setPlayerListener:
-  static void setPlayerListener(
+  /// setPlayerListenerForEngine:listener:
+  static void setPlayerListenerForEngine(
+    int engineId, {
     objc.ObjCBlock<ffi.Void Function(ffi.Long, ffi.Long, ffi.Double, ffi.Double, ffi.Double, objc.NSString?)>? listener,
-  ) {
+  }) {
     final _$$ref = listener?.ref;
-    _objc_msgSend_f167m6(_class_OggRecordPlayerApi, _sel_setPlayerListener_, _$$ref?.pointer ?? ffi.nullptr);
+    _objc_msgSend_1i0cxyc(
+      _class_OggRecordPlayerApi,
+      _sel_setPlayerListenerForEngine_listener_,
+      engineId,
+      _$$ref?.pointer ?? ffi.nullptr,
+    );
   }
 
-  /// setRecorderListenersWithCanceled:startFailed:finished:
-  static void setRecorderListenersWithCanceled(
-    objc.ObjCBlock<ffi.Void Function(ffi.Long, ffi.Long)>? canceled, {
+  /// setRecorderListenersForEngine:canceled:startFailed:finished:
+  static void setRecorderListenersForEngine(
+    int engineId, {
+    objc.ObjCBlock<ffi.Void Function(ffi.Long, ffi.Long)>? canceled,
     objc.ObjCBlock<ffi.Void Function(ffi.Long, objc.NSString)>? startFailed,
     objc.ObjCBlock<ffi.Void Function(ffi.Long, ffi.Long, objc.NSData)>? finished,
   }) {
     final _$$ref = canceled?.ref;
     final _$$ref$1 = startFailed?.ref;
     final _$$ref$2 = finished?.ref;
-    _objc_msgSend_yr4bfi(
+    _objc_msgSend_c2u0b8(
       _class_OggRecordPlayerApi,
-      _sel_setRecorderListenersWithCanceled_startFailed_finished_,
+      _sel_setRecorderListenersForEngine_canceled_startFailed_finished_,
+      engineId,
       _$$ref?.pointer ?? ffi.nullptr,
       _$$ref$1?.pointer ?? ffi.nullptr,
       _$$ref$2?.pointer ?? ffi.nullptr,
@@ -1658,6 +1692,27 @@ final _objc_msgSend_19nvye5 = objc.msgSendPointer
     .asFunction<
       bool Function(ffi.Pointer<objc.ObjCObjectImpl>, ffi.Pointer<objc.ObjCSelector>, ffi.Pointer<objc.ObjCObjectImpl>)
     >();
+final _objc_msgSend_1bf2hie = objc.msgSendPointer
+    .cast<
+      ffi.NativeFunction<
+        ffi.Void Function(
+          ffi.Pointer<objc.ObjCObjectImpl>,
+          ffi.Pointer<objc.ObjCSelector>,
+          ffi.Int64,
+          ffi.Pointer<objc.ObjCObjectImpl>,
+          ffi.Pointer<objc.ObjCBlockImpl>,
+        )
+      >
+    >()
+    .asFunction<
+      void Function(
+        ffi.Pointer<objc.ObjCObjectImpl>,
+        ffi.Pointer<objc.ObjCSelector>,
+        int,
+        ffi.Pointer<objc.ObjCObjectImpl>,
+        ffi.Pointer<objc.ObjCBlockImpl>,
+      )
+    >();
 final _objc_msgSend_1cwp428 = objc.msgSendPointer
     .cast<
       ffi.NativeFunction<
@@ -1678,18 +1733,24 @@ final _objc_msgSend_1cwp428 = objc.msgSendPointer
 final _objc_msgSend_1hz7y9r = objc.msgSendPointer
     .cast<ffi.NativeFunction<ffi.Long Function(ffi.Pointer<objc.ObjCObjectImpl>, ffi.Pointer<objc.ObjCSelector>)>>()
     .asFunction<int Function(ffi.Pointer<objc.ObjCObjectImpl>, ffi.Pointer<objc.ObjCSelector>)>();
-final _objc_msgSend_1r6ymhb = objc.msgSendPointer
+final _objc_msgSend_1i0cxyc = objc.msgSendPointer
     .cast<
       ffi.NativeFunction<
-        ffi.Long Function(
+        ffi.Void Function(
           ffi.Pointer<objc.ObjCObjectImpl>,
           ffi.Pointer<objc.ObjCSelector>,
-          ffi.Pointer<objc.ObjCObjectImpl>,
+          ffi.Int64,
+          ffi.Pointer<objc.ObjCBlockImpl>,
         )
       >
     >()
     .asFunction<
-      int Function(ffi.Pointer<objc.ObjCObjectImpl>, ffi.Pointer<objc.ObjCSelector>, ffi.Pointer<objc.ObjCObjectImpl>)
+      void Function(
+        ffi.Pointer<objc.ObjCObjectImpl>,
+        ffi.Pointer<objc.ObjCSelector>,
+        int,
+        ffi.Pointer<objc.ObjCBlockImpl>,
+      )
     >();
 final _objc_msgSend_1ukqyt8 = objc.msgSendPointer
     .cast<ffi.NativeFunction<ffi.Double Function(ffi.Pointer<objc.ObjCObjectImpl>, ffi.Pointer<objc.ObjCSelector>)>>()
@@ -1705,6 +1766,48 @@ final _objc_msgSend_4sp4xj = objc.msgSendPointer
 final _objc_msgSend_91o635 = objc.msgSendPointer
     .cast<ffi.NativeFunction<ffi.Bool Function(ffi.Pointer<objc.ObjCObjectImpl>, ffi.Pointer<objc.ObjCSelector>)>>()
     .asFunction<bool Function(ffi.Pointer<objc.ObjCObjectImpl>, ffi.Pointer<objc.ObjCSelector>)>();
+final _objc_msgSend_aopaxd = objc.msgSendPointer
+    .cast<
+      ffi.NativeFunction<
+        ffi.Long Function(
+          ffi.Pointer<objc.ObjCObjectImpl>,
+          ffi.Pointer<objc.ObjCSelector>,
+          ffi.Int64,
+          ffi.Pointer<objc.ObjCObjectImpl>,
+        )
+      >
+    >()
+    .asFunction<
+      int Function(
+        ffi.Pointer<objc.ObjCObjectImpl>,
+        ffi.Pointer<objc.ObjCSelector>,
+        int,
+        ffi.Pointer<objc.ObjCObjectImpl>,
+      )
+    >();
+final _objc_msgSend_c2u0b8 = objc.msgSendPointer
+    .cast<
+      ffi.NativeFunction<
+        ffi.Void Function(
+          ffi.Pointer<objc.ObjCObjectImpl>,
+          ffi.Pointer<objc.ObjCSelector>,
+          ffi.Int64,
+          ffi.Pointer<objc.ObjCBlockImpl>,
+          ffi.Pointer<objc.ObjCBlockImpl>,
+          ffi.Pointer<objc.ObjCBlockImpl>,
+        )
+      >
+    >()
+    .asFunction<
+      void Function(
+        ffi.Pointer<objc.ObjCObjectImpl>,
+        ffi.Pointer<objc.ObjCSelector>,
+        int,
+        ffi.Pointer<objc.ObjCBlockImpl>,
+        ffi.Pointer<objc.ObjCBlockImpl>,
+        ffi.Pointer<objc.ObjCBlockImpl>,
+      )
+    >();
 final _objc_msgSend_d0wly4 = objc.msgSendPointer
     .cast<
       ffi.NativeFunction<
@@ -1737,25 +1840,6 @@ final _objc_msgSend_f167m6 = objc.msgSendPointer
     .asFunction<
       void Function(ffi.Pointer<objc.ObjCObjectImpl>, ffi.Pointer<objc.ObjCSelector>, ffi.Pointer<objc.ObjCBlockImpl>)
     >();
-final _objc_msgSend_o762yo = objc.msgSendPointer
-    .cast<
-      ffi.NativeFunction<
-        ffi.Void Function(
-          ffi.Pointer<objc.ObjCObjectImpl>,
-          ffi.Pointer<objc.ObjCSelector>,
-          ffi.Pointer<objc.ObjCObjectImpl>,
-          ffi.Pointer<objc.ObjCBlockImpl>,
-        )
-      >
-    >()
-    .asFunction<
-      void Function(
-        ffi.Pointer<objc.ObjCObjectImpl>,
-        ffi.Pointer<objc.ObjCSelector>,
-        ffi.Pointer<objc.ObjCObjectImpl>,
-        ffi.Pointer<objc.ObjCBlockImpl>,
-      )
-    >();
 final _objc_msgSend_wtd09g = objc.msgSendPointer
     .cast<
       ffi.NativeFunction<
@@ -1763,27 +1847,6 @@ final _objc_msgSend_wtd09g = objc.msgSendPointer
       >
     >()
     .asFunction<void Function(ffi.Pointer<objc.ObjCObjectImpl>, ffi.Pointer<objc.ObjCSelector>, int, double)>();
-final _objc_msgSend_yr4bfi = objc.msgSendPointer
-    .cast<
-      ffi.NativeFunction<
-        ffi.Void Function(
-          ffi.Pointer<objc.ObjCObjectImpl>,
-          ffi.Pointer<objc.ObjCSelector>,
-          ffi.Pointer<objc.ObjCBlockImpl>,
-          ffi.Pointer<objc.ObjCBlockImpl>,
-          ffi.Pointer<objc.ObjCBlockImpl>,
-        )
-      >
-    >()
-    .asFunction<
-      void Function(
-        ffi.Pointer<objc.ObjCObjectImpl>,
-        ffi.Pointer<objc.ObjCSelector>,
-        ffi.Pointer<objc.ObjCBlockImpl>,
-        ffi.Pointer<objc.ObjCBlockImpl>,
-        ffi.Pointer<objc.ObjCBlockImpl>,
-      )
-    >();
 late final _sel_alloc = objc.registerName("alloc");
 late final _sel_allocWithZone_ = objc.registerName("allocWithZone:");
 late final _sel_arg0 = objc.registerName("arg0");
@@ -1792,10 +1855,12 @@ late final _sel_arg2 = objc.registerName("arg2");
 late final _sel_arg3 = objc.registerName("arg3");
 late final _sel_arg4 = objc.registerName("arg4");
 late final _sel_arg5 = objc.registerName("arg5");
-late final _sel_createFromBytes_callback_ = objc.registerName("createFromBytes:callback:");
-late final _sel_createFromFile_callback_ = objc.registerName("createFromFile:callback:");
-late final _sel_createFromUrl_callback_ = objc.registerName("createFromUrl:callback:");
-late final _sel_createRecorder_ = objc.registerName("createRecorder:");
+late final _sel_createFromBytesForEngine_bytes_callback_ = objc.registerName(
+  "createFromBytesForEngine:bytes:callback:",
+);
+late final _sel_createFromFileForEngine_path_callback_ = objc.registerName("createFromFileForEngine:path:callback:");
+late final _sel_createFromUrlForEngine_url_callback_ = objc.registerName("createFromUrlForEngine:url:callback:");
+late final _sel_createRecorderForEngine_path_ = objc.registerName("createRecorderForEngine:path:");
 late final _sel_destroyRecorder_callback_ = objc.registerName("destroyRecorder:callback:");
 late final _sel_getDuration_callback_ = objc.registerName("getDuration:callback:");
 late final _sel_init = objc.registerName("init");
@@ -1804,9 +1869,9 @@ late final _sel_new = objc.registerName("new");
 late final _sel_pause_ = objc.registerName("pause:");
 late final _sel_play_ = objc.registerName("play:");
 late final _sel_setPlaybackSpeed_speed_ = objc.registerName("setPlaybackSpeed:speed:");
-late final _sel_setPlayerListener_ = objc.registerName("setPlayerListener:");
-late final _sel_setRecorderListenersWithCanceled_startFailed_finished_ = objc.registerName(
-  "setRecorderListenersWithCanceled:startFailed:finished:",
+late final _sel_setPlayerListenerForEngine_listener_ = objc.registerName("setPlayerListenerForEngine:listener:");
+late final _sel_setRecorderListenersForEngine_canceled_startFailed_finished_ = objc.registerName(
+  "setRecorderListenersForEngine:canceled:startFailed:finished:",
 );
 late final _sel_startRecord_ = objc.registerName("startRecord:");
 late final _sel_stopRecord_ = objc.registerName("stopRecord:");

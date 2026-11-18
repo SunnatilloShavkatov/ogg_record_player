@@ -14,3 +14,8 @@ int recorderIdFromNative(int recorderId) {
   }
   return recorderId;
 }
+
+/// The engine id a native call is routed by: the calling engine's, or 0 (never a real id) when Dart runs without one,
+/// such as in a background isolate. Native code then uses the only attached engine, and refuses the call when several
+/// are attached, so it never reaches another engine's players.
+int engineIdForNative(int? engineId) => engineId ?? 0;

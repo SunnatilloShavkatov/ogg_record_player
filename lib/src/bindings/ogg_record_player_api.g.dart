@@ -841,7 +841,7 @@ extension type OggRecordPlayerApi._(jni$_.JObject _$this) implements jni$_.JObje
 
   static final _id_setListeners = _class.staticMethodId(
     r'setListeners',
-    r'(Luz/plugin/ogg_record_player/OggRecordPlayerApi$PlayerListener;Luz/plugin/ogg_record_player/OggRecordPlayerApi$RecorderListener;)V',
+    r'(JLuz/plugin/ogg_record_player/OggRecordPlayerApi$PlayerListener;Luz/plugin/ogg_record_player/OggRecordPlayerApi$RecorderListener;)V',
   );
 
   static final _setListeners =
@@ -850,7 +850,7 @@ extension type OggRecordPlayerApi._(jni$_.JObject _$this) implements jni$_.JObje
               jni$_.JThrowablePtr Function(
                 jni$_.Pointer<jni$_.Void>,
                 jni$_.JMethodIDPtr,
-                jni$_.VarArgs<(jni$_.Pointer<jni$_.Void>, jni$_.Pointer<jni$_.Void>)>,
+                jni$_.VarArgs<(jni$_.Int64, jni$_.Pointer<jni$_.Void>, jni$_.Pointer<jni$_.Void>)>,
               )
             >
           >('globalEnv_CallStaticVoidMethod')
@@ -858,13 +858,15 @@ extension type OggRecordPlayerApi._(jni$_.JObject _$this) implements jni$_.JObje
             jni$_.JThrowablePtr Function(
               jni$_.Pointer<jni$_.Void>,
               jni$_.JMethodIDPtr,
+              core$_.int,
               jni$_.Pointer<jni$_.Void>,
               jni$_.Pointer<jni$_.Void>,
             )
           >();
 
-  /// from: `public fun setListeners(playerListener: uz.plugin.ogg_record_player.OggRecordPlayerApi.PlayerListener, recorderListener: uz.plugin.ogg_record_player.OggRecordPlayerApi.RecorderListener): kotlin.Unit`
+  /// from: `public fun setListeners(engineId: kotlin.Long, playerListener: uz.plugin.ogg_record_player.OggRecordPlayerApi.PlayerListener, recorderListener: uz.plugin.ogg_record_player.OggRecordPlayerApi.RecorderListener): kotlin.Unit`
   static void setListeners(
+    core$_.int j,
     OggRecordPlayerApi$PlayerListener playerListener,
     OggRecordPlayerApi$RecorderListener recorderListener,
   ) {
@@ -874,6 +876,7 @@ extension type OggRecordPlayerApi._(jni$_.JObject _$this) implements jni$_.JObje
     _setListeners(
       _$$classRef.pointer,
       _id_setListeners.pointer,
+      j,
       _$playerListener.pointer,
       _$recorderListener.pointer,
     ).check();
@@ -881,7 +884,7 @@ extension type OggRecordPlayerApi._(jni$_.JObject _$this) implements jni$_.JObje
 
   static final _id_createFromFile = _class.staticMethodId(
     r'createFromFile',
-    r'(Ljava/lang/String;Luz/plugin/ogg_record_player/OggRecordPlayerApi$CreateCallback;)V',
+    r'(JLjava/lang/String;Luz/plugin/ogg_record_player/OggRecordPlayerApi$CreateCallback;)V',
   );
 
   static final _createFromFile =
@@ -890,7 +893,7 @@ extension type OggRecordPlayerApi._(jni$_.JObject _$this) implements jni$_.JObje
               jni$_.JThrowablePtr Function(
                 jni$_.Pointer<jni$_.Void>,
                 jni$_.JMethodIDPtr,
-                jni$_.VarArgs<(jni$_.Pointer<jni$_.Void>, jni$_.Pointer<jni$_.Void>)>,
+                jni$_.VarArgs<(jni$_.Int64, jni$_.Pointer<jni$_.Void>, jni$_.Pointer<jni$_.Void>)>,
               )
             >
           >('globalEnv_CallStaticVoidMethod')
@@ -898,19 +901,21 @@ extension type OggRecordPlayerApi._(jni$_.JObject _$this) implements jni$_.JObje
             jni$_.JThrowablePtr Function(
               jni$_.Pointer<jni$_.Void>,
               jni$_.JMethodIDPtr,
+              core$_.int,
               jni$_.Pointer<jni$_.Void>,
               jni$_.Pointer<jni$_.Void>,
             )
           >();
 
-  /// from: `public fun createFromFile(path: kotlin.String, callback: uz.plugin.ogg_record_player.OggRecordPlayerApi.CreateCallback): kotlin.Unit`
-  static void createFromFile(jni$_.JString string, OggRecordPlayerApi$CreateCallback createCallback) {
+  /// from: `public fun createFromFile(engineId: kotlin.Long, path: kotlin.String, callback: uz.plugin.ogg_record_player.OggRecordPlayerApi.CreateCallback): kotlin.Unit`
+  static void createFromFile(core$_.int j, jni$_.JString string, OggRecordPlayerApi$CreateCallback createCallback) {
     final _$$classRef = _class.reference;
     final _$string = string.reference;
     final _$createCallback = createCallback.reference;
     _createFromFile(
       _$$classRef.pointer,
       _id_createFromFile.pointer,
+      j,
       _$string.pointer,
       _$createCallback.pointer,
     ).check();
@@ -918,7 +923,7 @@ extension type OggRecordPlayerApi._(jni$_.JObject _$this) implements jni$_.JObje
 
   static final _id_createFromUrl = _class.staticMethodId(
     r'createFromUrl',
-    r'(Ljava/lang/String;Luz/plugin/ogg_record_player/OggRecordPlayerApi$CreateCallback;)V',
+    r'(JLjava/lang/String;Luz/plugin/ogg_record_player/OggRecordPlayerApi$CreateCallback;)V',
   );
 
   static final _createFromUrl =
@@ -927,7 +932,7 @@ extension type OggRecordPlayerApi._(jni$_.JObject _$this) implements jni$_.JObje
               jni$_.JThrowablePtr Function(
                 jni$_.Pointer<jni$_.Void>,
                 jni$_.JMethodIDPtr,
-                jni$_.VarArgs<(jni$_.Pointer<jni$_.Void>, jni$_.Pointer<jni$_.Void>)>,
+                jni$_.VarArgs<(jni$_.Int64, jni$_.Pointer<jni$_.Void>, jni$_.Pointer<jni$_.Void>)>,
               )
             >
           >('globalEnv_CallStaticVoidMethod')
@@ -935,22 +940,29 @@ extension type OggRecordPlayerApi._(jni$_.JObject _$this) implements jni$_.JObje
             jni$_.JThrowablePtr Function(
               jni$_.Pointer<jni$_.Void>,
               jni$_.JMethodIDPtr,
+              core$_.int,
               jni$_.Pointer<jni$_.Void>,
               jni$_.Pointer<jni$_.Void>,
             )
           >();
 
-  /// from: `public fun createFromUrl(url: kotlin.String, callback: uz.plugin.ogg_record_player.OggRecordPlayerApi.CreateCallback): kotlin.Unit`
-  static void createFromUrl(jni$_.JString string, OggRecordPlayerApi$CreateCallback createCallback) {
+  /// from: `public fun createFromUrl(engineId: kotlin.Long, url: kotlin.String, callback: uz.plugin.ogg_record_player.OggRecordPlayerApi.CreateCallback): kotlin.Unit`
+  static void createFromUrl(core$_.int j, jni$_.JString string, OggRecordPlayerApi$CreateCallback createCallback) {
     final _$$classRef = _class.reference;
     final _$string = string.reference;
     final _$createCallback = createCallback.reference;
-    _createFromUrl(_$$classRef.pointer, _id_createFromUrl.pointer, _$string.pointer, _$createCallback.pointer).check();
+    _createFromUrl(
+      _$$classRef.pointer,
+      _id_createFromUrl.pointer,
+      j,
+      _$string.pointer,
+      _$createCallback.pointer,
+    ).check();
   }
 
   static final _id_createFromBytes = _class.staticMethodId(
     r'createFromBytes',
-    r'([BLuz/plugin/ogg_record_player/OggRecordPlayerApi$CreateCallback;)V',
+    r'(J[BLuz/plugin/ogg_record_player/OggRecordPlayerApi$CreateCallback;)V',
   );
 
   static final _createFromBytes =
@@ -959,7 +971,7 @@ extension type OggRecordPlayerApi._(jni$_.JObject _$this) implements jni$_.JObje
               jni$_.JThrowablePtr Function(
                 jni$_.Pointer<jni$_.Void>,
                 jni$_.JMethodIDPtr,
-                jni$_.VarArgs<(jni$_.Pointer<jni$_.Void>, jni$_.Pointer<jni$_.Void>)>,
+                jni$_.VarArgs<(jni$_.Int64, jni$_.Pointer<jni$_.Void>, jni$_.Pointer<jni$_.Void>)>,
               )
             >
           >('globalEnv_CallStaticVoidMethod')
@@ -967,17 +979,24 @@ extension type OggRecordPlayerApi._(jni$_.JObject _$this) implements jni$_.JObje
             jni$_.JThrowablePtr Function(
               jni$_.Pointer<jni$_.Void>,
               jni$_.JMethodIDPtr,
+              core$_.int,
               jni$_.Pointer<jni$_.Void>,
               jni$_.Pointer<jni$_.Void>,
             )
           >();
 
-  /// from: `public fun createFromBytes(bytes: kotlin.ByteArray, callback: uz.plugin.ogg_record_player.OggRecordPlayerApi.CreateCallback): kotlin.Unit`
-  static void createFromBytes(jni$_.JByteArray bs, OggRecordPlayerApi$CreateCallback createCallback) {
+  /// from: `public fun createFromBytes(engineId: kotlin.Long, bytes: kotlin.ByteArray, callback: uz.plugin.ogg_record_player.OggRecordPlayerApi.CreateCallback): kotlin.Unit`
+  static void createFromBytes(core$_.int j, jni$_.JByteArray bs, OggRecordPlayerApi$CreateCallback createCallback) {
     final _$$classRef = _class.reference;
     final _$bs = bs.reference;
     final _$createCallback = createCallback.reference;
-    _createFromBytes(_$$classRef.pointer, _id_createFromBytes.pointer, _$bs.pointer, _$createCallback.pointer).check();
+    _createFromBytes(
+      _$$classRef.pointer,
+      _id_createFromBytes.pointer,
+      j,
+      _$bs.pointer,
+      _$createCallback.pointer,
+    ).check();
   }
 
   static final _id_warmUp = _class.staticMethodId(
@@ -1107,7 +1126,7 @@ extension type OggRecordPlayerApi._(jni$_.JObject _$this) implements jni$_.JObje
     _setPlaybackSpeed(_$$classRef.pointer, _id_setPlaybackSpeed.pointer, i, d).check();
   }
 
-  static final _id_createRecorder = _class.staticMethodId(r'createRecorder', r'(Ljava/lang/String;)I');
+  static final _id_createRecorder = _class.staticMethodId(r'createRecorder', r'(JLjava/lang/String;)I');
 
   static final _createRecorder =
       jni$_.ProtectedJniExtensions.lookup<
@@ -1115,19 +1134,24 @@ extension type OggRecordPlayerApi._(jni$_.JObject _$this) implements jni$_.JObje
               jni$_.JniResult Function(
                 jni$_.Pointer<jni$_.Void>,
                 jni$_.JMethodIDPtr,
-                jni$_.VarArgs<(jni$_.Pointer<jni$_.Void>,)>,
+                jni$_.VarArgs<(jni$_.Int64, jni$_.Pointer<jni$_.Void>)>,
               )
             >
           >('globalEnv_CallStaticIntMethod')
           .asFunction<
-            jni$_.JniResult Function(jni$_.Pointer<jni$_.Void>, jni$_.JMethodIDPtr, jni$_.Pointer<jni$_.Void>)
+            jni$_.JniResult Function(
+              jni$_.Pointer<jni$_.Void>,
+              jni$_.JMethodIDPtr,
+              core$_.int,
+              jni$_.Pointer<jni$_.Void>,
+            )
           >();
 
-  /// from: `public fun createRecorder(path: kotlin.String): kotlin.Int`
-  static core$_.int createRecorder(jni$_.JString string) {
+  /// from: `public fun createRecorder(engineId: kotlin.Long, path: kotlin.String): kotlin.Int`
+  static core$_.int createRecorder(core$_.int j, jni$_.JString string) {
     final _$$classRef = _class.reference;
     final _$string = string.reference;
-    return _createRecorder(_$$classRef.pointer, _id_createRecorder.pointer, _$string.pointer).integer;
+    return _createRecorder(_$$classRef.pointer, _id_createRecorder.pointer, j, _$string.pointer).integer;
   }
 
   static final _id_startRecord = _class.staticMethodId(r'startRecord', r'(I)Ljava/lang/String;');
