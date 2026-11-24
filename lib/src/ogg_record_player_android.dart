@@ -6,12 +6,13 @@ import 'package:jni/jni.dart';
 import 'package:ogg_record_player/src/bindings/ogg_record_player_api.g.dart';
 import 'package:ogg_record_player/src/native_results.dart';
 import 'package:ogg_record_player/src/ogg_opus_exception.dart';
+import 'package:ogg_record_player/src/ogg_record_player_android_permission.dart';
 import 'package:ogg_record_player/src/ogg_record_player_platform_interface.dart';
 import 'package:ogg_record_player/src/platform_events.dart';
 
 /// [OggRecordPlayerPlatform] over JNI: Dart calls `OggRecordPlayerApi` directly, with no method channel. Callbacks
 /// are asynchronous listeners, so Kotlin never blocks on Dart, and arrive as events on the two streams.
-class AndroidOggRecordPlayer extends OggRecordPlayerPlatform {
+class AndroidOggRecordPlayer extends OggRecordPlayerPlatform with AndroidMicrophonePermission {
   // Synchronous, so a state change reaches its player in the same task the native callback arrived in.
   final StreamController<PlayerStateEvent> _playerStateChanges = StreamController<PlayerStateEvent>.broadcast(
     sync: true,
@@ -180,7 +181,7 @@ class AndroidOggRecordPlayer extends OggRecordPlayerPlatform {
         ),
       );
       handOver(callback, start);
-    } on JThrowable catch (e) {
+    } on Object catch (e) {
       return Future<int>.error(OggOpusPlayerException(code: OggOpusPlayerException.unknown, message: e.toString()));
     }
     return completer.future;

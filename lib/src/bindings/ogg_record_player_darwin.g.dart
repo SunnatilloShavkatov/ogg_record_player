@@ -67,6 +67,19 @@ external ffi.Pointer<objc.ObjCBlockImpl> _8ucdvo_wrapBlockingBlock_1w5k0al(
     ffi.Pointer<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<objc.ObjCObjectImpl> args)>>,
   )
 >(isLeaf: true)
+external ffi.Pointer<objc.ObjCBlockImpl> _8ucdvo_wrapBlockingBlock_4sp4xj(
+  int port,
+  ffi.Pointer<objc.DOBJC_Context> context,
+  ffi.Pointer<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<objc.ObjCObjectImpl> args)>> directInvoke,
+);
+
+@ffi.Native<
+  ffi.Pointer<objc.ObjCBlockImpl> Function(
+    ffi.Int64,
+    ffi.Pointer<objc.DOBJC_Context>,
+    ffi.Pointer<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<objc.ObjCObjectImpl> args)>>,
+  )
+>(isLeaf: true)
 external ffi.Pointer<objc.ObjCBlockImpl> _8ucdvo_wrapBlockingBlock_6r6s7t(
   int port,
   ffi.Pointer<objc.DOBJC_Context> context,
@@ -119,6 +132,12 @@ external ffi.Pointer<objc.ObjCBlockImpl> _8ucdvo_wrapListenerBlock_1pl9qdv(
 
 @ffi.Native<ffi.Pointer<objc.ObjCBlockImpl> Function(ffi.Int64, ffi.Pointer<objc.DOBJC_Context>)>(isLeaf: true)
 external ffi.Pointer<objc.ObjCBlockImpl> _8ucdvo_wrapListenerBlock_1w5k0al(
+  int port,
+  ffi.Pointer<objc.DOBJC_Context> context,
+);
+
+@ffi.Native<ffi.Pointer<objc.ObjCBlockImpl> Function(ffi.Int64, ffi.Pointer<objc.DOBJC_Context>)>(isLeaf: true)
+external ffi.Pointer<objc.ObjCBlockImpl> _8ucdvo_wrapListenerBlock_4sp4xj(
   int port,
   ffi.Pointer<objc.DOBJC_Context> context,
 );
@@ -238,6 +257,109 @@ extension ObjCBlock_ffiVoid$CallExtension on objc.ObjCBlock<ffi.Void Function()>
     return ref.pointer.ref.invoke
         .cast<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<objc.ObjCBlockImpl> block)>>()
         .asFunction<void Function(ffi.Pointer<objc.ObjCBlockImpl>)>()(ref.pointer);
+  }
+}
+
+/// Construction methods for `objc.ObjCBlock<ffi.Void Function(ffi.Long)>`.
+abstract final class ObjCBlock_ffiVoid_NSInteger {
+  /// Returns a block that wraps the given raw block pointer.
+  static objc.ObjCBlock<ffi.Void Function(ffi.Long)> fromPointer(
+    ffi.Pointer<objc.ObjCBlockImpl> pointer, {
+    bool retain = false,
+    bool release = false,
+  }) => objc.ObjCBlock<ffi.Void Function(ffi.Long)>(pointer, retain: retain, release: release);
+
+  /// Creates a block from a C function pointer.
+  ///
+  /// This block must be invoked by native code running on the same thread as
+  /// the isolate that registered it. Invoking the block on the wrong thread
+  /// will result in a crash.
+  static objc.ObjCBlock<ffi.Void Function(ffi.Long)> fromFunctionPointer(
+    ffi.Pointer<ffi.NativeFunction<ffi.Void Function(ffi.Long arg0)>> ptr,
+  ) => objc.ObjCBlock<ffi.Void Function(ffi.Long)>(
+    objc.newPointerBlock(_fnPtrCallable, ptr.cast()),
+    retain: false,
+    release: true,
+  );
+
+  /// Creates a block from a Dart function.
+  ///
+  /// This block must be invoked by native code running on the same thread as
+  /// the isolate that registered it. Invoking the block on the wrong thread
+  /// will result in a crash.
+  ///
+  /// If `keepIsolateAlive` is true, this block will keep this isolate alive
+  /// until it is garbage collected by both Dart and ObjC.
+  static objc.ObjCBlock<ffi.Void Function(ffi.Long)> fromFunction(
+    void Function(int) fn, {
+    bool keepIsolateAlive = true,
+  }) => objc.ObjCBlock<ffi.Void Function(ffi.Long)>(
+    objc.newClosureBlock(_closureCallable, (int arg0) {
+      return fn(arg0);
+    }, keepIsolateAlive),
+    retain: false,
+    release: true,
+  );
+
+  /// Creates a listener block from a Dart function.
+  ///
+  /// This block can be invoked from any thread, but only supports void
+  /// functions, and is not run synchronously. Async functions (ie returning
+  /// Future<void>) are not supported.
+  ///
+  /// If `keepIsolateAlive` is true, this block will keep this isolate alive
+  /// until it is garbage collected by both Dart and ObjC.
+  static objc.ObjCBlock<ffi.Void Function(ffi.Long)> listener(void Function(int) fn, {bool keepIsolateAlive = true}) {
+    return objc.ObjCBlock<ffi.Void Function(ffi.Long)>(
+      objc.newBlockPort(_8ucdvo_wrapListenerBlock_4sp4xj, (ffi.Pointer<objc.ObjCObjectImpl> rawArgs) {
+        final args = _BlockArgs_1d4xkb1.fromPointer(rawArgs, retain: false, release: false);
+
+        fn(args.arg0);
+      }, keepIsolateAlive),
+      retain: false,
+      release: true,
+    );
+  }
+
+  /// Creates a blocking block from a Dart function.
+  ///
+  /// This callback can be invoked from any native thread, and will block the
+  /// caller until the callback is handled by the Dart isolate that created
+  /// the block. Async functions (ie returning Future<void>) are not supported.
+  ///
+  /// If `keepIsolateAlive` is true, this block will keep this isolate alive
+  /// until it is garbage collected by both Dart and ObjC. If the owner isolate
+  /// has shut down, and the block is invoked by native code, it may block
+  /// indefinitely, or have other undefined behavior.
+  static objc.ObjCBlock<ffi.Void Function(ffi.Long)> blocking(void Function(int) fn, {bool keepIsolateAlive = true}) {
+    return objc.ObjCBlock<ffi.Void Function(ffi.Long)>(
+      objc.newBlockingBlockPort(_8ucdvo_wrapBlockingBlock_4sp4xj, (ffi.Pointer<objc.ObjCObjectImpl> rawArgs) {
+        final args = _BlockArgs_1d4xkb1.fromPointer(rawArgs, retain: false, release: false);
+
+        fn(args.arg0);
+      }, keepIsolateAlive),
+      retain: false,
+      release: true,
+    );
+  }
+
+  static void _fnPtrTrampoline(ffi.Pointer<objc.ObjCBlockImpl> block, int arg0) => block.ref.target
+      .cast<ffi.NativeFunction<ffi.Void Function(ffi.Long arg0)>>()
+      .asFunction<void Function(int)>()(arg0);
+  static ffi.Pointer<ffi.Void> _fnPtrCallable =
+      ffi.Pointer.fromFunction<ffi.Void Function(ffi.Pointer<objc.ObjCBlockImpl>, ffi.Long)>(_fnPtrTrampoline).cast();
+  static void _closureTrampoline(ffi.Pointer<objc.ObjCBlockImpl> block, int arg0) =>
+      (objc.getBlockClosure(block) as void Function(int))(arg0);
+  static ffi.Pointer<ffi.Void> _closureCallable =
+      ffi.Pointer.fromFunction<ffi.Void Function(ffi.Pointer<objc.ObjCBlockImpl>, ffi.Long)>(_closureTrampoline).cast();
+}
+
+/// Call operator for `objc.ObjCBlock<ffi.Void Function(ffi.Long)>`.
+extension ObjCBlock_ffiVoid_NSInteger$CallExtension on objc.ObjCBlock<ffi.Void Function(ffi.Long)> {
+  void call(int arg0) {
+    return ref.pointer.ref.invoke
+        .cast<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<objc.ObjCBlockImpl> block, ffi.Long arg0)>>()
+        .asFunction<void Function(ffi.Pointer<objc.ObjCBlockImpl>, int)>()(ref.pointer, arg0);
   }
 }
 
@@ -1290,10 +1412,20 @@ extension type OggRecordPlayerApi._(objc.ObjCObject object$) implements objc.Obj
     _objc_msgSend_d0wly4(_class_OggRecordPlayerApi, _sel_getDuration_callback_, playerId, _$$ref.pointer);
   }
 
+  /// microphonePermission
+  static int microphonePermission() {
+    return _objc_msgSend_1hz7y9r(_class_OggRecordPlayerApi, _sel_microphonePermission);
+  }
+
   /// new
   static OggRecordPlayerApi new$() {
     final $ret = _objc_msgSend_151sglz(_class_OggRecordPlayerApi, _sel_new);
     return OggRecordPlayerApi.fromPointer($ret, retain: false, release: true);
+  }
+
+  /// openAppSettings
+  static bool openAppSettings() {
+    return _objc_msgSend_91o635(_class_OggRecordPlayerApi, _sel_openAppSettings);
   }
 
   /// pause:
@@ -1304,6 +1436,12 @@ extension type OggRecordPlayerApi._(objc.ObjCObject object$) implements objc.Obj
   /// play:
   static void play(int playerId) {
     _objc_msgSend_4sp4xj(_class_OggRecordPlayerApi, _sel_play_, playerId);
+  }
+
+  /// requestMicrophonePermission:
+  static void requestMicrophonePermission(objc.ObjCBlock<ffi.Void Function(ffi.Long)> callback) {
+    final _$$ref = callback.ref;
+    _objc_msgSend_f167m6(_class_OggRecordPlayerApi, _sel_requestMicrophonePermission_, _$$ref.pointer);
   }
 
   /// setPlaybackSpeed:speed:
@@ -1346,8 +1484,9 @@ extension type OggRecordPlayerApi._(objc.ObjCObject object$) implements objc.Obj
   }
 
   /// startRecord:
-  static void startRecord(int recorderId) {
-    _objc_msgSend_4sp4xj(_class_OggRecordPlayerApi, _sel_startRecord_, recorderId);
+  static objc.NSString? startRecord(int recorderId) {
+    final $ret = _objc_msgSend_qugqlf(_class_OggRecordPlayerApi, _sel_startRecord_, recorderId);
+    return $ret.address == 0 ? null : objc.NSString.fromPointer($ret, retain: true, release: true);
   }
 
   /// stop:
@@ -1462,6 +1601,30 @@ extension _BlockArgs_1cizysx$Methods on _BlockArgs_1cizysx {
     final _$$ref = object$.ref;
     final $ret = _objc_msgSend_151sglz(_$$ref.pointer, _sel_arg5);
     return $ret.address == 0 ? null : objc.NSString.fromPointer($ret, retain: true, release: true);
+  }
+}
+
+extension type _BlockArgs_1d4xkb1._(objc.ObjCObject object$) implements objc.ObjCObject {
+  /// Constructs a [_BlockArgs_1d4xkb1] that points to the same underlying object as [other].
+  _BlockArgs_1d4xkb1.as(objc.ObjCObject other) : object$ = other {
+    assert(isA(object$));
+  }
+
+  /// Constructs a [_BlockArgs_1d4xkb1] that wraps the given raw object pointer.
+  _BlockArgs_1d4xkb1.fromPointer(ffi.Pointer<objc.ObjCObjectImpl> other, {bool retain = false, bool release = false})
+    : object$ = objc.ObjCObject(other, retain: retain, release: release) {
+    assert(isA(object$));
+  }
+
+  /// Returns whether [obj] is an instance of [_BlockArgs_1d4xkb1].
+  static bool isA(objc.ObjCObject? obj) =>
+      obj == null ? false : _objc_msgSend_19nvye5(obj.ref.pointer, _sel_isKindOfClass_, _class__BlockArgs_1d4xkb1);
+}
+
+extension _BlockArgs_1d4xkb1$Methods on _BlockArgs_1d4xkb1 {
+  int get arg0 {
+    final _$$ref = object$.ref;
+    return _objc_msgSend_1hz7y9r(_$$ref.pointer, _sel_arg0);
   }
 }
 
@@ -1639,6 +1802,12 @@ external ffi.Pointer<objc.ObjCObjectImpl> _class__BlockArgs_1cizysx_raw;
 final _class__BlockArgs_1cizysx = objc.getClass(
   "_8ucdvo_BlockArgs_rgwm94",
   () => ffi.Native.addressOf<ffi.Pointer<objc.ObjCObjectImpl>>(_class__BlockArgs_1cizysx_raw).cast(),
+);
+@ffi.Native<ffi.Pointer<objc.ObjCObjectImpl>>(symbol: 'OBJC_CLASS_\$__8ucdvo_BlockArgs_4sp4xj')
+external ffi.Pointer<objc.ObjCObjectImpl> _class__BlockArgs_1d4xkb1_raw;
+final _class__BlockArgs_1d4xkb1 = objc.getClass(
+  "_8ucdvo_BlockArgs_4sp4xj",
+  () => ffi.Native.addressOf<ffi.Pointer<objc.ObjCObjectImpl>>(_class__BlockArgs_1d4xkb1_raw).cast(),
 );
 @ffi.Native<ffi.Pointer<objc.ObjCObjectImpl>>(symbol: 'OBJC_CLASS_\$__8ucdvo_BlockArgs_o1oetf')
 external ffi.Pointer<objc.ObjCObjectImpl> _class__BlockArgs_5nknmf_raw;
@@ -1840,6 +2009,19 @@ final _objc_msgSend_f167m6 = objc.msgSendPointer
     .asFunction<
       void Function(ffi.Pointer<objc.ObjCObjectImpl>, ffi.Pointer<objc.ObjCSelector>, ffi.Pointer<objc.ObjCBlockImpl>)
     >();
+final _objc_msgSend_qugqlf = objc.msgSendPointer
+    .cast<
+      ffi.NativeFunction<
+        ffi.Pointer<objc.ObjCObjectImpl> Function(
+          ffi.Pointer<objc.ObjCObjectImpl>,
+          ffi.Pointer<objc.ObjCSelector>,
+          ffi.Long,
+        )
+      >
+    >()
+    .asFunction<
+      ffi.Pointer<objc.ObjCObjectImpl> Function(ffi.Pointer<objc.ObjCObjectImpl>, ffi.Pointer<objc.ObjCSelector>, int)
+    >();
 final _objc_msgSend_wtd09g = objc.msgSendPointer
     .cast<
       ffi.NativeFunction<
@@ -1865,9 +2047,12 @@ late final _sel_destroyRecorder_callback_ = objc.registerName("destroyRecorder:c
 late final _sel_getDuration_callback_ = objc.registerName("getDuration:callback:");
 late final _sel_init = objc.registerName("init");
 late final _sel_isKindOfClass_ = objc.registerName("isKindOfClass:");
+late final _sel_microphonePermission = objc.registerName("microphonePermission");
 late final _sel_new = objc.registerName("new");
+late final _sel_openAppSettings = objc.registerName("openAppSettings");
 late final _sel_pause_ = objc.registerName("pause:");
 late final _sel_play_ = objc.registerName("play:");
+late final _sel_requestMicrophonePermission_ = objc.registerName("requestMicrophonePermission:");
 late final _sel_setPlaybackSpeed_speed_ = objc.registerName("setPlaybackSpeed:speed:");
 late final _sel_setPlayerListenerForEngine_listener_ = objc.registerName("setPlayerListenerForEngine:listener:");
 late final _sel_setRecorderListenersForEngine_canceled_startFailed_finished_ = objc.registerName(

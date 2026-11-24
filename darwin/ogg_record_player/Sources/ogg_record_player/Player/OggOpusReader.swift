@@ -1,7 +1,5 @@
 import Foundation
-#if canImport(ogg_record_player_c)
 import ogg_record_player_c
-#endif
 
 class OggOpusReader {
     

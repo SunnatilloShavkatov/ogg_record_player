@@ -23,7 +23,7 @@ or in `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  ogg_record_player: ^2.8.2
+  ogg_record_player: ^2.9.0
 ```
 
 Requires Dart 3.13 / Flutter 3.47 or newer.
@@ -32,8 +32,8 @@ Requires Dart 3.13 / Flutter 3.47 or newer.
 
 ### Android
 
-`RECORD_AUDIO` is declared by the plugin, but it is a runtime permission: **your app must request it
-before calling `OggOpusRecorder.start()`** (for example with `permission_handler`).
+`RECORD_AUDIO` is declared by the plugin, but it is a runtime permission: **request it before calling
+`OggOpusRecorder.start()`** with `OggOpusRecorder.requestPermission()` (see [Microphone permission](#microphone-permission)).
 Without it `start()` throws an `OggOpusRecorderException` with code `PERMISSION_DENIED`.
 
 No other permission is needed. A recording holds the audio focus; a phone call, an assistant or another app
@@ -41,12 +41,23 @@ taking it cancels the recording, and a recording cannot start during a call.
 
 ### iOS
 
+The plugin is distributed for **Swift Package Manager only**; CocoaPods is not supported (there is no podspec).
+Enable SwiftPM once:
+
+```shell
+flutter config --enable-swift-package-manager
+```
+
 Add `NSMicrophoneUsageDescription` to your `Info.plist`:
 
 ```xml
 <key>NSMicrophoneUsageDescription</key>
 <string>This app uses your microphone to record voice messages.</string>
 ```
+
+`OggOpusRecorder.requestPermission()` (or the first `start()`) shows the system prompt. Once the user refused
+it, `start()` throws an `OggOpusRecorderException` with code `PERMISSION_DENIED`, as on Android; send them to
+Settings with `OggOpusRecorder.openAppSettings()`.
 
 On iOS, configure the audio session (for example with `audio_session`) with the `playAndRecord`
 category before recording. See [`example/lib/main.dart`](example/lib/main.dart).
@@ -176,6 +187,22 @@ contain optimized machine code without debug information (no LTO bitcode), so th
 Measure changes using matching release builds, architectures and app dependencies. Device checks are listed in
 [`doc/native-audio-verification.md`](doc/native-audio-verification.md).
 
+### Microphone permission
+
+The plugin checks and requests the microphone permission itself, so no `permission_handler` is needed:
+
+```dart
+MicrophonePermission status = await OggOpusRecorder.permissionStatus();
+if (status.canRequest) {
+  status = await OggOpusRecorder.requestPermission(); // shows the system prompt
+}
+if (status == MicrophonePermission.permanentlyDenied) {
+  await OggOpusRecorder.openAppSettings(); // only Settings can grant it now
+}
+```
+
+`denied` means the prompt can still be shown again (Android only); on iOS every refusal is `permanentlyDenied`.
+
 ### Recording
 
 ```dart
@@ -224,12 +251,18 @@ Notes:
 | Android     | Media3 ExoPlayer               | `AudioRecord` → JNI → libopusenc (16 kHz mono, 16 kbps, max 3 min) |
 | iOS         | `AudioQueue` + Ogg Opus reader | `AudioUnit` → libopusenc (16 kHz mono, 16 kbps, max 3 min)         |
 
+There is no method channel. Dart calls the native code directly: on Android the Kotlin `OggRecordPlayerApi`
+through JNI (`jni` + `jnigen`), on iOS the Swift `@objc` `OggRecordPlayerApi` through the Objective-C runtime
+(FFI: `objective_c` + `ffigen`). Native events come back as asynchronous callbacks, so native code never waits
+for Dart.
+
 Android links prebuilt static `libogg`, `libopus` and `libopusenc` from
 `android/src/main/cpp/opus/lib/<abi>/`. `libopusenc` is built from 0.2.1 with `-DNDEBUG`, because a
 failing internal `assert` in `ope_encoder_drain` would otherwise abort the whole app process.
 Native libraries are linked with 16 KB page alignment.
 
-Apple platforms ship prebuilt xcframeworks and support both CocoaPods and Swift Package Manager.
+Apple platforms ship prebuilt xcframeworks and support Swift Package Manager only (no CocoaPods);
+enable it with `flutter config --enable-swift-package-manager`.
 
 ## Example
 

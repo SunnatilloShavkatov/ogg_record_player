@@ -155,6 +155,11 @@ class AudioPlayer(
     fun play() {
         if (released) return
         val player = player()
+        if (failure != null) {
+            // After an error the player is idle; a new play retries the source instead of staying failed.
+            failure = null
+            player.prepare()
+        }
         if (!focusEnabled) {
             focusEnabled = true
             player.setAudioAttributes(audioAttributes, true)

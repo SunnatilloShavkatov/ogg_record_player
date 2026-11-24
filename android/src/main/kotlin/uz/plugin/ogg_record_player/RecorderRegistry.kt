@@ -1,7 +1,6 @@
 package uz.plugin.ogg_record_player
 
 import android.content.Context
-import android.content.pm.PackageManager
 import java.io.File
 import java.util.Collections
 
@@ -27,9 +26,6 @@ internal class RecorderRegistry(
     val isRecording: Boolean get() = slots.values.toList().any { it.session?.isActive == true }
 
     fun contains(id: Int): Boolean = slots.containsKey(id)
-
-    fun hasRecordPermission(): Boolean =
-        context.checkCallingOrSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_DENIED
 
     fun create(path: String): Int {
         val id = generateId()

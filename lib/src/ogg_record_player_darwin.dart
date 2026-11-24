@@ -5,6 +5,7 @@ import 'dart:ui' show PlatformDispatcher;
 
 import 'package:objective_c/objective_c.dart' as objc;
 import 'package:ogg_record_player/src/bindings/ogg_record_player_darwin.g.dart';
+import 'package:ogg_record_player/src/microphone_permission.dart';
 import 'package:ogg_record_player/src/native_results.dart';
 import 'package:ogg_record_player/src/ogg_opus_exception.dart';
 import 'package:ogg_record_player/src/ogg_record_player_platform_interface.dart';
@@ -107,14 +108,30 @@ class DarwinOggRecordPlayer extends OggRecordPlayerPlatform {
   @override
   Future<int> createRecorder(String path) async {
     _registerListeners();
-    return recorderIdFromNative(OggRecordPlayerApi.createRecorderForEngine(_engineId, path: path.toNSString()));
+    final int nativeId;
+    try {
+      nativeId = OggRecordPlayerApi.createRecorderForEngine(_engineId, path: path.toNSString());
+    } on Object catch (e) {
+      throw OggOpusRecorderException(code: OggOpusRecorderException.unknown, message: '$e');
+    }
+    return recorderIdFromNative(nativeId);
   }
 
   @override
-  Future<void> startRecord(int recorderId) async => OggRecordPlayerApi.startRecord(recorderId);
+  Future<void> startRecord(int recorderId) async {
+    final String? code;
+    try {
+      code = OggRecordPlayerApi.startRecord(recorderId)?.toDartString();
+    } on Object catch (e) {
+      throw OggOpusRecorderException(code: OggOpusRecorderException.unknown, message: '$e');
+    }
+    if (code != null) {
+      throw OggOpusRecorderException(code: code, message: code);
+    }
+  }
 
   @override
-  Future<void> stopRecord(int recorderId) async => OggRecordPlayerApi.stopRecord(recorderId);
+  Future<void> stopRecord(int recorderId) => _run(() => OggRecordPlayerApi.stopRecord(recorderId));
 
   /// Completes once the native recording released the audio session, so a `play` right after is not refused.
   @override
@@ -134,6 +151,26 @@ class DarwinOggRecordPlayer extends OggRecordPlayerPlatform {
     }
     return completer.future;
   }
+
+  @override
+  Future<MicrophonePermission> microphonePermission() async =>
+      MicrophonePermission.fromRaw(OggRecordPlayerApi.microphonePermission());
+
+  @override
+  Future<MicrophonePermission> requestMicrophonePermission() {
+    final Completer<MicrophonePermission> completer = Completer<MicrophonePermission>();
+    OggRecordPlayerApi.requestMicrophonePermission(
+      ObjCBlock_ffiVoid_NSInteger.listener((int status) {
+        if (!completer.isCompleted) {
+          completer.complete(MicrophonePermission.fromRaw(status));
+        }
+      }),
+    );
+    return completer.future;
+  }
+
+  @override
+  Future<bool> openAppSettings() async => OggRecordPlayerApi.openAppSettings();
 
   Future<int> _createPlayer(void Function(CreateBlock callback) start) {
     _registerListeners();

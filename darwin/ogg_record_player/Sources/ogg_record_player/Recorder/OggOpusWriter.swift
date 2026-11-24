@@ -1,7 +1,5 @@
 import Foundation
-#if canImport(ogg_record_player_c)
 import ogg_record_player_c
-#endif
 
 fileprivate let numberOfChannels: Int32 = 1;
 fileprivate let outputBitRate: Int32 = 16 * 1024;

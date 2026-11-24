@@ -6,7 +6,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:ogg_record_player/ogg_record_player.dart';
 import 'package:ogg_record_player_example/player_controls.dart';
 import 'package:ogg_record_player_example/player_examples.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 class RecorderExample extends StatefulWidget {
   const new({super.key, required this.dir, required this.session});
@@ -42,8 +41,12 @@ class _RecorderExampleState extends State<RecorderExample> {
     setState(() => _busy = true);
     OggOpusRecorder? recorder;
     try {
-      if (Platform.isAndroid && !await Permission.microphone.request().isGranted) {
+      final MicrophonePermission permission = await OggOpusRecorder.requestPermission();
+      if (!permission.isGranted) {
         _showError('Microphone permission denied');
+        if (permission == MicrophonePermission.permanentlyDenied) {
+          await OggOpusRecorder.openAppSettings();
+        }
         return;
       }
       if (!mounted) {

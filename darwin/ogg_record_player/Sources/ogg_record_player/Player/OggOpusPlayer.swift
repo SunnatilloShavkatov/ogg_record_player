@@ -25,7 +25,7 @@ final class OggOpusPlayer {
   private var generation = 0
 
   var currentTime: Float64 {
-    assert(Queue.main.isCurrent)
+    assert(Thread.isMainThread)
     if status != .stopped {
       let position = max(0, playback.position ?? lastPosition)
       lastPosition = duration.map { min($0, position) } ?? position
@@ -35,7 +35,7 @@ final class OggOpusPlayer {
 
   var playRate: Float = 1 {
     didSet {
-      assert(Queue.main.isCurrent)
+      assert(Thread.isMainThread)
       playRate = playRate.isFinite ? min(2, max(0.5, playRate)) : oldValue
       playback.setRate(playRate)
     }
@@ -49,7 +49,8 @@ final class OggOpusPlayer {
     try self.init(reader: OggOpusReader(data: data))
   }
 
-  private init(reader: OggOpusReader) throws {
+  /// Takes an opened `reader`, so the file can be opened and scanned off the main thread first.
+  init(reader: OggOpusReader) throws {
     duration = reader.duration
     playback = try OggOpusPlayback(reader: reader)
     playback.onFinished = { [weak self] generation, reachedEnd in
@@ -68,7 +69,7 @@ final class OggOpusPlayer {
   }
 
   func play() {
-    assert(Queue.main.isCurrent)
+    assert(Thread.isMainThread)
     guard !wantsPlayback, activateAudioSession() else { return }
     resumeAfterInterruption = false
     wantsPlayback = true
@@ -89,7 +90,7 @@ final class OggOpusPlayer {
   }
 
   func pause() {
-    assert(Queue.main.isCurrent)
+    assert(Thread.isMainThread)
     // Also cancel resumption when the UI pauses an already interrupted player.
     resumeAfterInterruption = false
     pausePlayback()
@@ -105,7 +106,7 @@ final class OggOpusPlayer {
   }
 
   func stop() {
-    assert(Queue.main.isCurrent)
+    assert(Thread.isMainThread)
     resumeAfterInterruption = false
     wantsPlayback = false
     generation += 1

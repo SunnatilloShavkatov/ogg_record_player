@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import 'package:ogg_record_player/src/microphone_permission.dart';
 import 'package:ogg_record_player/src/ogg_opus_exception.dart';
 import 'package:ogg_record_player/src/ogg_record_player_platform_interface.dart';
 import 'package:ogg_record_player/src/player_plugin_impl.dart';
@@ -80,8 +81,30 @@ abstract class OggOpusRecorder {
 
   new create();
 
+  /// The microphone permission recording needs, without asking the user.
+  static Future<MicrophonePermission> permissionStatus() {
+    _ensureSupportedPlatform();
+    return OggRecordPlayerPlatform.instance.microphonePermission();
+  }
+
+  /// Shows the system prompt when it still can (the status is [MicrophonePermission.undetermined] or
+  /// [MicrophonePermission.denied]) and answers the resulting permission; otherwise answers the current one.
+  /// After [MicrophonePermission.permanentlyDenied] only [openAppSettings] can help.
+  static Future<MicrophonePermission> requestPermission() {
+    _ensureSupportedPlatform();
+    return OggRecordPlayerPlatform.instance.requestMicrophonePermission();
+  }
+
+  /// Opens the app's page in the system settings, where a refused microphone permission can be granted.
+  /// Returns `false` when the page could not be opened.
+  static Future<bool> openAppSettings() {
+    _ensureSupportedPlatform();
+    return OggRecordPlayerPlatform.instance.openAppSettings();
+  }
+
   /// Starts recording. Throws an [OggOpusRecorderException] if the platform rejects the request, e.g. with
-  /// code [OggOpusRecorderException.permissionDenied] when the microphone permission has not been granted, or
+  /// code [OggOpusRecorderException.permissionDenied] when the microphone permission has not been granted (ask for
+  /// it first with [requestPermission]), or
   /// if the native recorder could not be created.
   ///
   /// The same recorder can record again after [stop]: the new recording replaces the file and the previous

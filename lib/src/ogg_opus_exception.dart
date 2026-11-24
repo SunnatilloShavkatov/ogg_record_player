@@ -39,7 +39,7 @@ class OggOpusRecorderException implements Exception {
   /// The recording path was empty.
   static const String invalidArgument = 'INVALID_ARGUMENT';
 
-  /// The microphone permission has not been granted (Android).
+  /// The microphone permission has not been granted (Android), or the user refused it (iOS).
   static const String permissionDenied = 'PERMISSION_DENIED';
 
   /// The native recorder reported a failure after `start()` returned; [message] carries its reason.

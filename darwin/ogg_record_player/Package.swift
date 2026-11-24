@@ -7,7 +7,7 @@ let package = Package(
     .iOS("15.0"),
   ],
   products: [
-    .library(name: "ogg-record-player", targets: ["ogg_record_player"]),
+    .library(name: "ogg-record-player", type: .dynamic, targets: ["ogg_record_player"]),
   ],
   dependencies: [
     // Required by Flutter >= 3.44 SwiftPM integration; the real package is
@@ -28,11 +28,7 @@ let package = Package(
         "libopusfile",
       ],
       path: "Sources/ogg_record_player_c",
-      publicHeadersPath: "include",
-      cSettings: [
-        .headerSearchPath("."),
-        .headerSearchPath("include"),
-      ]
+      publicHeadersPath: "include"
     ),
     .target(
       name: "ogg_record_player",

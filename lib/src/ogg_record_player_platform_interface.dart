@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 import 'dart:typed_data';
 
+import 'package:ogg_record_player/src/microphone_permission.dart';
 import 'package:ogg_record_player/src/ogg_record_player_android.dart';
 import 'package:ogg_record_player/src/ogg_record_player_darwin.dart';
 import 'package:ogg_record_player/src/platform_events.dart';
@@ -96,5 +97,20 @@ abstract class OggRecordPlayerPlatform extends PlatformInterface {
 
   Future<void> destroyRecorder(int recorderId) {
     throw UnimplementedError('destroyRecorder() has not been implemented.');
+  }
+
+  /// The current microphone permission, without asking the user.
+  Future<MicrophonePermission> microphonePermission() {
+    throw UnimplementedError('microphonePermission() has not been implemented.');
+  }
+
+  /// Shows the system prompt when it still can, and answers the resulting permission.
+  Future<MicrophonePermission> requestMicrophonePermission() {
+    throw UnimplementedError('requestMicrophonePermission() has not been implemented.');
+  }
+
+  /// Opens the app's page in the system settings; `false` when it could not be opened.
+  Future<bool> openAppSettings() {
+    throw UnimplementedError('openAppSettings() has not been implemented.');
   }
 }

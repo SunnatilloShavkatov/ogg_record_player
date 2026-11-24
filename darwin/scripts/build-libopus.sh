@@ -2,7 +2,7 @@
 #  target are resolved in function.sh.
 VERSION="1.5.2"
 
-source function.sh
+source "$(dirname "${BASH_SOURCE[0]}")/function.sh"
 
 ########################################
 

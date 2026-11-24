@@ -15,7 +15,7 @@ public class OggRecordPlayerPlugin: NSObject, FlutterPlugin {
     // Each engine registers its own instance and gets its own players and recorders. Publishing keeps this
     // instance alive so `detachFromEngine` runs. Dart looks `OggRecordPlayerApi` up by name, so this reference is
     // also what keeps its class out of the linker's dead-code stripping.
-    let key = OggRecordPlayerApi.engineKey(of: registrar)
+    let key = EngineScope.key(of: registrar)
     registrar.publish(OggRecordPlayerPlugin(engineKey: key, scope: OggRecordPlayerApi.attach(engine: key)))
   }
 
