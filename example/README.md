@@ -29,10 +29,14 @@ await player.dispose();
 
 ## Recording
 
-Request the microphone permission first (Android: `RECORD_AUDIO` at runtime; iOS:
+Request the microphone permission with the plugin itself (no `permission_handler`; iOS also needs
 `NSMicrophoneUsageDescription`), and on iOS configure the audio session with the `playAndRecord` category.
 
 ```dart
+MicrophonePermission status = await OggOpusRecorder.permissionStatus();
+if (status.canRequest) status = await OggOpusRecorder.requestPermission();
+if (status == MicrophonePermission.permanentlyDenied) await OggOpusRecorder.openAppSettings();
+
 final OggOpusRecorder recorder = OggOpusRecorder('/path/to/new_voice.ogg');
 try {
   await recorder.start();

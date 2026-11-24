@@ -1,3 +1,22 @@
+## 2.9.0
+
+### Fixed
+- **iOS:** release builds from an archive (`flutter build ipa`, TestFlight, App Store) no longer fail to find the plugin's native symbols. Xcode's default "All Symbols" strip removed the exported `OggRecordPlayerApi` class and block wrappers that Dart looks up by name; the Swift package product is now a dynamic framework (`ogg-record-player.framework`), whose exports survive stripping.
+
+### Added
+- Microphone permission without `permission_handler`: `OggOpusRecorder.permissionStatus()`, `OggOpusRecorder.requestPermission()` and `OggOpusRecorder.openAppSettings()`, returning `MicrophonePermission` (`granted`, `denied`, `permanentlyDenied`, `undetermined`). Android asks through the engine's activity over JNI; iOS uses `AVAudioApplication` (`AVAudioSession` before iOS 17) through the Objective-C runtime (ffigen).
+- **Example:** no longer depends on `permission_handler`; the app and the Patrol tests use the plugin's own permission API.
+
+### Removed
+- **iOS:** CocoaPods support (`ogg_record_player.podspec`). The plugin is Swift Package Manager only; enable it with `flutter config --enable-swift-package-manager`.
+- **iOS:** the duplicate `opusenc_set_bitrate.h` outside `include/`.
+- **iOS:** stale copies of the opus/opusenc/opusfile headers in the C target; they now come only from the vendored xcframeworks.
+- **iOS:** the `MixinServices/Queue.swift` helper.
+
+### Changed
+- **iOS:** Swift sources are grouped into `Api/`, `Player/`, `Recorder/`, `AudioSession/`, `Network/` and `Support/`; the ffigen header and block wrapper moved to `ogg_record_player_c/ffi/`.
+- **iOS:** the xcframework build scripts (`build-all.sh`, `build-lib*.sh`, `function.sh`) moved to `darwin/scripts/` and resolve their paths from the script location, so they run from any directory.
+
 ## 2.8.2
 
 ### Fixed

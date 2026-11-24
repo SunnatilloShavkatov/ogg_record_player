@@ -26,9 +26,15 @@ NS_ASSUME_NONNULL_BEGIN
 + (void)setPlaybackSpeed:(NSInteger)playerId speed:(double)speed;
 
 + (NSInteger)createRecorderForEngine:(int64_t)engineId path:(NSString *)path;
-+ (void)startRecord:(NSInteger)recorderId;
+// Returns PERMISSION_DENIED when the microphone permission was refused, otherwise nil.
++ (nullable NSString *)startRecord:(NSInteger)recorderId;
 + (void)stopRecord:(NSInteger)recorderId;
 + (void)destroyRecorder:(NSInteger)recorderId callback:(void (^)(void))callback;
+
+// Microphone permission status: 0 granted, 1 denied, 2 permanently denied, 3 never asked.
++ (NSInteger)microphonePermission;
++ (void)requestMicrophonePermission:(void (^)(NSInteger status))callback;
++ (BOOL)openAppSettings;
 
 @end
 

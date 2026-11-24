@@ -47,6 +47,11 @@ object OggRecordPlayerApi {
         fun onDone()
     }
 
+    /** [status] is a `MicrophonePermission` code: 0 granted, 1 denied, 2 permanently denied, 3 never asked. */
+    interface PermissionCallback {
+        fun onResult(status: Int)
+    }
+
     /**
      * Replaces the listeners of engine [engineId] (`PlatformDispatcher.instance.engineId`, or 0 when Dart has
      * none); a hot restart registers new ones. Other engines keep theirs.
@@ -129,6 +134,23 @@ object OggRecordPlayerApi {
     fun destroyRecorder(recorderId: Int) {
         OggRecordPlayerHost.owning(recorderId)?.destroyRecorder(recorderId)
     }
+
+    /** The microphone permission status code, see [PermissionCallback]; denied when [engineId] is not attached. */
+    @JvmStatic
+    fun microphonePermission(engineId: Long): Int =
+        OggRecordPlayerHost.forEngine(engineId)?.microphone?.status() ?: MicrophonePermission.DENIED
+
+    /** Shows the system prompt when Android still may, then answers the resulting status. */
+    @JvmStatic
+    fun requestMicrophonePermission(engineId: Long, callback: PermissionCallback) {
+        val permission = OggRecordPlayerHost.forEngine(engineId)?.microphone
+        if (permission == null) callback.onResult(MicrophonePermission.DENIED) else permission.request(callback)
+    }
+
+    /** Opens this app's system settings page; false when it could not be opened. */
+    @JvmStatic
+    fun openAppSettings(engineId: Long): Boolean =
+        OggRecordPlayerHost.forEngine(engineId)?.microphone?.openAppSettings() ?: false
 
     private fun detached(callback: CreateCallback) {
         callback.onFailed("UNKNOWN", "Failed to create player", "the calling Flutter engine is not attached")

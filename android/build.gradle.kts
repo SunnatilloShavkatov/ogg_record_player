@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "uz.plugin.ogg_record_player"
-version = "2.8.2"
+version = "2.9.0"
 
 android {
     namespace = "uz.plugin.ogg_record_player"

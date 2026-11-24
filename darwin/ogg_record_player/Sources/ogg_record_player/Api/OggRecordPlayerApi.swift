@@ -17,8 +17,6 @@ public final class OggRecordPlayerApi: NSObject {
   /// Each attached engine's players, recorders and listeners. Main thread only.
   private static var scopes: [Int64: EngineScope] = [:]
   private static var lastGeneratedId = 0
-  /// For registrars that do not expose their engine identifier: negative, so never a real identifier.
-  private static var lastSyntheticKey: Int64 = 0
 
   /// Recordings stop and finish on their own after 3 minutes, like Android's `MAX_RECORD_DURATION`.
   private static let maxRecordingDuration: TimeInterval = 180
@@ -38,21 +36,6 @@ public final class OggRecordPlayerApi: NSObject {
   }
 
   // MARK: Engines
-
-  /// The key `registrar`'s engine is kept under: its identifier when the registrar exposes one (Flutter 3.50+),
-  /// else a synthetic key that only the single-engine fallback in `scope(forEngine:)` can reach.
-  static func engineKey(of registrar: AnyObject) -> Int64 {
-    let selector = NSSelectorFromString("engineIdentifier")
-    if let object = registrar as? NSObject, object.responds(to: selector),
-       let identifier = object.value(forKey: "engineIdentifier") as? NSNumber,
-       identifier.int64Value != noEngine {
-      return identifier.int64Value
-    }
-    return onMainSync {
-      lastSyntheticKey -= 1
-      return lastSyntheticKey
-    }
-  }
 
   /// Starts a scope for an attaching engine; one left under the same key is released first.
   static func attach(engine key: Int64) -> EngineScope {
@@ -151,11 +134,21 @@ public final class OggRecordPlayerApi: NSObject {
         fail(callback, .invalidArgument, "path must be a non-empty string")
         return
       }
-      guard FileManager.default.fileExists(atPath: path) else {
-        fail(callback, .fileNotFound, path)
-        return
+      // Opening the file reads it and scans its length, so that runs off main; the player is made on main.
+      DispatchQueue.global(qos: .userInitiated).async { [weak scope] in
+        guard FileManager.default.fileExists(atPath: path) else {
+          onMain { fail(callback, .fileNotFound, path) }
+          return
+        }
+        let reader = Result { try OggOpusReader(fileAtPath: path) }
+        onMain {
+          guard let scope = scope, scope.isAttached else {
+            fail(callback, .unknown, "Flutter engine detached before the file was read")
+            return
+          }
+          registerPlayer(in: scope, callback, make: { try OggOpusPlayer(reader: reader.get()) })
+        }
       }
-      registerPlayer(in: scope, callback, make: { try OggOpusPlayer(path: path) })
     }
   }
 
@@ -269,8 +262,12 @@ public final class OggRecordPlayerApi: NSObject {
     }
   }
 
-  @objc public static func startRecord(_ recorderId: Int) {
+  /// Returns `PERMISSION_DENIED` when the user refused the microphone, like Android; otherwise `nil`. iOS would
+  /// record silence instead of failing. An undetermined permission still starts: iOS asks the user then.
+  @objc public static func startRecord(_ recorderId: Int) -> String? {
+    if microphonePermission() == permissionPermanentlyDenied { return "PERMISSION_DENIED" }
     onMain { recorder(recorderId)?.record(for: maxRecordingDuration) }
+    return nil
   }
 
   @objc public static func stopRecord(_ recorderId: Int) {
@@ -288,69 +285,4 @@ public final class OggRecordPlayerApi: NSObject {
       recorder.cancel(for: .userInitiated) { callback() }
     }
   }
-}
-
-/// One attached engine's players, recorders and the listeners its Dart side registered. Main thread only. Once
-/// detached it emits nothing more, so a detached engine's events never reach another one.
-final class EngineScope {
-  var players: [Int: OggOpusPlayer] = [:]
-  var recorders: [Int: OggOpusRecorder] = [:]
-
-  var playerListener: ((Int, Int, Double, Double, Double, String?) -> Void)?
-  var recorderCanceled: ((Int, Int) -> Void)?
-  var recorderStartFailed: ((Int, String) -> Void)?
-  var recorderFinished: ((Int, Int, Data) -> Void)?
-
-  private(set) var isAttached = true
-
-  func owns(_ id: Int) -> Bool {
-    players[id] != nil || recorders[id] != nil
-  }
-
-  func emitState(id: Int, _ player: OggOpusPlayer) {
-    guard isAttached else { return }
-    playerListener?(id, player.status.rawValue, player.currentTime, player.duration ?? 0, Double(player.playRate), nil)
-  }
-
-  /// Releases every player and recorder and silences later events.
-  func detach() {
-    isAttached = false
-    playerListener = nil
-    recorderCanceled = nil
-    recorderStartFailed = nil
-    recorderFinished = nil
-    players.values.forEach { $0.stop() }
-    players.removeAll()
-    recorders.values.forEach { $0.cancel(for: .userInitiated) }
-    recorders.removeAll()
-  }
-}
-
-/// Forwards one recorder's events to the listeners its engine's Dart side registered.
-final class RecorderEventForwarder: OggOpusRecorderDelegate {
-  let recorderId: Int
-  private weak var scope: EngineScope?
-
-  init(recorderId: Int, scope: EngineScope) {
-    self.recorderId = recorderId
-    self.scope = scope
-  }
-
-  func oggOpusRecorderIsWaitingForActivation(_ recorder: OggOpusRecorder) {}
-
-  func oggOpusRecorderDidStartRecording(_ recorder: OggOpusRecorder) {}
-
-  func oggOpusRecorder(_ recorder: OggOpusRecorder, didCancelRecordingForReason reason: OggOpusRecorder.CancelledReason, userInfo: [String: Any]?) {
-    scope?.recorderCanceled?(recorderId, Int(reason.rawValue))
-  }
-
-  func oggOpusRecorder(_ recorder: OggOpusRecorder, didFailRecordingWithError error: Error) {
-    scope?.recorderStartFailed?(recorderId, error.localizedDescription)
-  }
-
-  func oggOpusRecorder(_ recorder: OggOpusRecorder, didFinishRecordingWithMetadata data: AudioMetadata) {
-    scope?.recorderFinished?(recorderId, Int(data.duration), Data(data.waveform))
-  }
-
-  func oggOpusRecorderDidDetectAudioSessionInterruptionEnd(_ recorder: OggOpusRecorder) {}
 }

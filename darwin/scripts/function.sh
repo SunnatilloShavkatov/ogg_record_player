@@ -18,16 +18,16 @@ fi
 DEVELOPER=$(xcode-select -print-path)
 #DEVELOPER="/Applications/Xcode.app/Contents/Developer"
 
-# Minimum deployment target. Must match `s.platform = :ios, 'x'` in the podspec
-# and `platforms: [.iOS("x")]` in Package.swift.
+# Minimum deployment target. Must match `platforms: [.iOS("x")]` in Package.swift.
 MINIOSVERSION="${MINIOSVERSION:-15.0}"
 
 # Resolved from the installed Xcode instead of hardcoded, so the scripts keep
 # working across Xcode upgrades.
 IPHONEOS_SDKVERSION=$(xcrun --sdk iphoneos --show-sdk-version)
 
-cd "$(dirname \"$0\")"
-REPOROOT=$(pwd)
+# Scripts live in darwin/scripts; everything below is relative to darwin/.
+REPOROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+cd "${REPOROOT}"
 
 # Where we'll end up storing things in the end
 OUTPUTDIR="${REPOROOT}/ogg_record_player"
@@ -122,6 +122,12 @@ function cp_to_xc_framework() {
   mkdir -p "$lib_dir"
   cp "${lib_path}" "${lib_dir}/lib${lib_name}.a"
   cp -r "${lib_header_path}/" "${lib_dir}/Headers"
+  # Opus headers include each other flat (`#include <opus.h>`), so they sit at the Headers root;
+  # Xcode merges every xcframework's Headers into one include dir for the SPM C target.
+  if [ -d "${lib_dir}/Headers/opus" ]; then
+    mv "${lib_dir}/Headers/opus/"* "${lib_dir}/Headers/"
+    rmdir "${lib_dir}/Headers/opus"
+  fi
 }
 
 function collect_build_ios_library() {

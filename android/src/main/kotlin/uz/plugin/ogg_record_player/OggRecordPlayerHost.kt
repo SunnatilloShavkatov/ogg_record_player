@@ -15,6 +15,9 @@ import java.io.File
 import java.io.IOException
 import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
 /**
@@ -62,6 +65,11 @@ internal class OggRecordPlayerHost(private val context: Context) {
 
         private val mainHandler = Handler(Looper.getMainLooper())
 
+        /** Reads files for [createFromFile] in order, off main; its one thread ends when idle. */
+        private val fileIo = ThreadPoolExecutor(0, 1, 30, TimeUnit.SECONDS, LinkedBlockingQueue()) { runnable ->
+            Thread(runnable, "ogg_record_player.fileIo").apply { isDaemon = true }
+        }
+
         /**
          * A cold first player spends part of its setup on Media3 listing the device's Opus decoders. The list is
          * cached process-wide, so querying it here off main lets the first real player skip it. Audio focus is
@@ -90,6 +98,9 @@ internal class OggRecordPlayerHost(private val context: Context) {
 
     private val players: MutableMap<Int, AudioPlayer> = Collections.synchronizedMap(mutableMapOf())
 
+    /** The microphone permission; the plugin hands it the engine's activity while one is attached. */
+    val microphone = MicrophonePermission(context)
+
     private val recorders = RecorderRegistry(context, ::generateId, object : RecorderListener {
         override fun onCanceled(recorderId: Int, reason: Int) {
             if (attached) recorderListener?.onCanceled(recorderId, reason)
@@ -111,29 +122,39 @@ internal class OggRecordPlayerHost(private val context: Context) {
         this.recorderListener = recorderListener
     }
 
-    // Same checks as Darwin, so both platforms report a missing file the same way instead of an idle player.
-    fun createFromFile(path: String?, callback: CreateCallback) = onMain {
+    // Same checks as Darwin, so both platforms report a missing file the same way instead of an idle player. The
+    // checks and the duration scan read the file, so they run off main; the player is registered on main.
+    fun createFromFile(path: String?, callback: CreateCallback) {
         if (path.isNullOrEmpty()) {
             callback.fail(PlayerError.INVALID_ARGUMENT, "path must be a non-empty string")
-            return@onMain
+            return
         }
-        val file = File(path)
-        if (!file.isFile) {
-            callback.fail(PlayerError.FILE_NOT_FOUND, path)
-            return@onMain
+        fileIo.execute {
+            val file = File(path)
+            val failure: Pair<PlayerError, String?>?
+            var duration: Double? = null
+            failure = try {
+                when {
+                    !file.isFile -> PlayerError.FILE_NOT_FOUND to path
+                    // Media3 would report a non-Ogg file only after the player exists; Darwin rejects it here too.
+                    !file.hasOggSignature() -> PlayerError.INVALID_FILE to "file is not an Ogg stream"
+                    else -> {
+                        duration = OggOpusDuration.of(file)
+                        null
+                    }
+                }
+            } catch (e: IOException) {
+                PlayerError.IO_ERROR to e.localizedMessage
+            }
+            val knownDuration = duration
+            mainHandler.post {
+                when {
+                    failure != null -> callback.fail(failure.first, failure.second)
+                    !attached -> callback.fail(PlayerError.UNKNOWN, "Flutter engine detached before the file was read")
+                    else -> registerPlayer(callback, knownDuration) { fileMediaSource(path) }
+                }
+            }
         }
-        // Media3 would report a non-Ogg file only after the player exists; Darwin rejects it here too.
-        val isOgg = try {
-            file.hasOggSignature()
-        } catch (e: IOException) {
-            callback.fail(PlayerError.IO_ERROR, e.localizedMessage)
-            return@onMain
-        }
-        if (!isOgg) {
-            callback.fail(PlayerError.INVALID_FILE, "file is not an Ogg stream")
-            return@onMain
-        }
-        registerPlayer(callback, OggOpusDuration.of(file)) { fileMediaSource(path) }
     }
 
     fun createFromUrl(url: String?, callback: CreateCallback) {
@@ -211,7 +232,7 @@ internal class OggRecordPlayerHost(private val context: Context) {
     fun createRecorder(path: String?): Int = if (path.isNullOrEmpty()) -1 else recorders.create(path)
 
     fun startRecord(recorderId: Int): String? {
-        if (!recorders.hasRecordPermission()) return "PERMISSION_DENIED"
+        if (!microphone.isGranted) return "PERMISSION_DENIED"
         onMain { recorders.start(recorderId) { players.values.toList().forEach { it.pause() } } }
         return null
     }

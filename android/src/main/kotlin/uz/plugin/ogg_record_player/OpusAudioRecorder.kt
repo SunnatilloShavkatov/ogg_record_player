@@ -195,7 +195,7 @@ class OpusAudioRecorder(
                 return@Runnable
             }
             instanceState = STATE_RECORDING
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             abortStart(e.localizedMessage ?: "Recording could not be started")
             return@Runnable
         }
@@ -234,7 +234,7 @@ class OpusAudioRecorder(
                 if (audioRecord.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
                     audioRecord.stop()
                 }
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 recordingAudioFile.delete()
             }
             stopRecordingInternal(endStatus)

@@ -2,25 +2,26 @@
 
 ## What this repo is
 - Flutter federated plugin for **playback + recording** of Ogg Opus audio on **Android/iOS**.
-- Public API is tiny: `OggOpusPlayer`, `OggOpusRecorder`, `PlayerState` in `lib/src/player.dart` and `lib/src/player_state.dart`.
-- Dart side is a platform adapter with **no method channel**: Android calls Kotlin through JNI (jnigen), iOS calls the Swift `@objc` API through the Objective-C runtime (ffigen + `package:objective_c`). Native platforms implement the actual audio stack.
+- Public API is tiny: `OggOpusPlayer`, `OggOpusRecorder`, `PlayerState`, `MicrophonePermission` in `lib/src/player.dart`, `lib/src/player_state.dart` and `lib/src/microphone_permission.dart`.
+- Dart side is a platform adapter with **no method channel and no Pigeon**: Android calls Kotlin through JNI (`jni` + jnigen), iOS calls the Swift `@objc` API through the Objective-C runtime (FFI: ffigen + `package:objective_c`). Never add a `MethodChannel`/`EventChannel` back. Native platforms implement the actual audio stack.
 
 ## Architecture (read in this order)
 1. `lib/src/player.dart` (factory selection and API contract)
 2. `lib/src/player_plugin_impl.dart`, `lib/src/recorder_plugin_impl.dart`, `lib/src/platform_event_router.dart` (id handler maps, event handling)
 3. `android/src/main/kotlin/uz/plugin/ogg_record_player/OggRecordPlayerPlugin.kt`
-4. `darwin/ogg_record_player/Sources/ogg_record_player/OggRecordPlayerPlugin.swift`
+4. `darwin/ogg_record_player/Sources/ogg_record_player/Api/OggRecordPlayerPlugin.swift`
 5. `example/lib/main.dart` (real usage patterns for session setup + lifecycle)
 
 ## Native API (JNI on Android, Objective-C on iOS)
-- Android: `OggRecordPlayerApi.kt` (`android/src/main/kotlin/...`, a Kotlin `object` with `@JvmStatic` methods) is the only surface Dart sees: static methods plus callback interfaces (`PlayerListener`, `RecorderListener`, `CreateCallback`, `DurationCallback`, `DoneCallback`), primitives/`String`/`ByteArray` only; jnigen reads the compiled class, so run `cd example/android && ./gradlew :ogg_record_player:compileDebugKotlin` first (`tool/jnigen.dart` picks the freshest of the built-in-Kotlin and kotlin-android class dirs). All native Android code is Kotlin, no `.java` files. It forwards to `OggRecordPlayerHost.kt` (one host per engine id: create/listener calls take the caller's `PlatformDispatcher.instance.engineId`, 0 when unknown, and id calls go to the host that owns the id); `OggRecordPlayerPlugin.kt` is lifecycle only. Regenerate `lib/src/bindings/ogg_record_player_api.g.dart` with `dart run tool/jnigen.dart`; `consumer-rules.pro` keeps the facade through R8.
-- iOS: `OggRecordPlayerApi.swift` (`@objc(OggRecordPlayerApi)` class methods + blocks) is the surface; `OggRecordPlayerPlugin.swift` is lifecycle only; state lives in one `EngineScope` per engine (keyed by the registrar's engine id), and detaching frees only that scope. `darwin/ogg_record_player/Sources/ogg_record_player_c/ogg_record_player_api.h` is a hand-written ObjC view of it and **must match the Swift signatures exactly** (selectors, types, block signatures; a mismatch crashes at runtime). It stays out of `include/`. `dart run tool/ffigen.dart` generates `lib/src/bindings/ogg_record_player_darwin.g.dart` and the block wrapper `ogg_record_player_darwin.m` (compiled by the pod / the `ogg_record_player_c` SPM target).
+- Android: `OggRecordPlayerApi.kt` (`android/src/main/kotlin/...`, a Kotlin `object` with `@JvmStatic` methods) is the only surface Dart sees: static methods plus callback interfaces (`PlayerListener`, `RecorderListener`, `CreateCallback`, `DurationCallback`, `DoneCallback`, `PermissionCallback`), primitives/`String`/`ByteArray` only; jnigen reads the compiled class, so run `cd example/android && ./gradlew :ogg_record_player:compileDebugKotlin` first (`tool/jnigen.dart` picks the freshest of the built-in-Kotlin and kotlin-android class dirs). All native Android code is Kotlin, no `.java` files. It forwards to `OggRecordPlayerHost.kt` (one host per engine id: create/listener calls take the caller's `PlatformDispatcher.instance.engineId`, 0 when unknown, and id calls go to the host that owns the id); `OggRecordPlayerPlugin.kt` is lifecycle only. Regenerate `lib/src/bindings/ogg_record_player_api.g.dart` with `dart run tool/jnigen.dart`; `consumer-rules.pro` keeps the facade through R8.
+- iOS: `OggRecordPlayerApi.swift` (`@objc(OggRecordPlayerApi)` class methods + blocks) is the surface; `OggRecordPlayerPlugin.swift` is lifecycle only; state lives in one `EngineScope` per engine (keyed by the registrar's engine id), and detaching frees only that scope. `darwin/ogg_record_player/Sources/ogg_record_player_c/ffi/ogg_record_player_api.h` is a hand-written ObjC view of it and **must match the Swift signatures exactly** (selectors, types, block signatures; a mismatch crashes at runtime). It stays out of `include/`. `dart run tool/ffigen.dart` generates `lib/src/bindings/ogg_record_player_darwin.g.dart` and the block wrapper `ffi/ogg_record_player_darwin.m` (compiled by the `ogg_record_player_c` SPM target).
 - Generated files are exempt from the 300-line rule; commit them after regenerating.
 - `lib/src/ogg_record_player_android.dart` / `ogg_record_player_darwin.dart` implement `OggRecordPlayerPlatform`; `OggRecordPlayerPlatform.instance` picks by platform. Listener callbacks are async so native never blocks on Dart. Host tests cannot load the native bindings: tests install a fake platform.
 - Failures are reported through `createFrom*` callbacks as `(code, message, details)`; Android `startRecord` returns the error code (`PERMISSION_DENIED`) instead of throwing.
+- Microphone permission is the plugin's own (no `permission_handler`): `microphonePermission`, `requestMicrophonePermission` (async callback) and `openAppSettings` exist on both sides and return the shared codes `0` granted, `1` denied (Android only, prompt can show again), `2` permanently denied, `3` undetermined (`MicrophonePermission.fromRaw`). Android: `MicrophonePermission.kt`, the prompt needs the engine's activity (`ActivityAware`), so calls carry the engine id; Dart side is `ogg_record_player_android_permission.dart`. iOS: `OggRecordPlayerApi+Permission.swift`.
 
-## Cross-platform contract (historical channel names; the native API mirrors them)
-- Dart → native methods: `createFromFile` (path), `createFromUrl` (http/https string), `createFromBytes` (`Uint8List`), `play`, `pause`, `stop`, `getDuration`, `setPlaybackSpeed`, `warmUp`, `createRecorder`, `startRecord`, `stopRecord`, `destroyRecorder`.
+## Cross-platform contract (JNI/FFI method names, identical on both sides)
+- Dart → native methods: `createFromFile` (path), `createFromUrl` (http/https string), `createFromBytes` (`Uint8List`), `play`, `pause`, `stop`, `getDuration`, `setPlaybackSpeed`, `warmUp`, `createRecorder`, `startRecord`, `stopRecord`, `destroyRecorder`, `microphonePermission`, `requestMicrophonePermission`, `openAppSettings`.
 - Native → Dart callbacks: `onPlayerStateChanged`, `onRecorderCanceled`, `onRecorderStartFailed`, `onRecorderFinished`.
 - `onPlayerStateChanged` state `4` means the player failed after creation (Android only for now); the payload then carries `errorCode`, one of the `createFrom*` codes. Both platforms send `onRecorderStartFailed` when a recorder cannot start after `startRecord` returned.
 - `onRecorderCanceled` `reason` values are shared (`OggOpusRecorder.CancelledReason` / `OpusAudioRecorder.CANCEL_*`): `0` interruption (iOS session, Android audio-focus loss), `1` route lost its input (iOS), `2` microphone stopped delivering audio, `3` user/destroy, `4` unusable file (shorter than `MIN_DRAIN_SAMPLES` = 250 ms at 16 kHz, or an encoder write error). A canceled recording's file is deleted; a successful one is never reported with a file that was not drained.
@@ -43,7 +44,7 @@
 - iOS playback uses `AudioQueue` + `OggOpusReader` (`OggOpusPlayer.swift`, `OggOpusReader.swift`).
 - `OggOpusPlayback` buffer state stays on `processingQueue`, but synchronous `AudioQueueStop`/`AudioQueueDispose` must run outside that callback queue. Stops from inside the callback queue must be asynchronous to avoid blocking callbacks and freezing the UI.
 - iOS recording uses `AudioUnit` (RemoteIO) + `OggOpusWriter` + custom `AudioSession` arbitration on iOS (`OggOpusRecorder.swift`, `darwin/ogg_record_player/Sources/ogg_record_player/AudioSession/*`).
-- Apple platforms use a unified `darwin/` directory with `sharedDarwinSource: true` in `pubspec.yaml`, supporting both CocoaPods (`darwin/ogg_record_player.podspec`) and Swift Package Manager (`darwin/ogg_record_player/Package.swift`).
+- **Apple: Swift Package Manager only. CocoaPods is fully removed**: no `ogg_record_player.podspec`, no `Podfile` in `example/ios`, no `pod install`/`pod lib lint`. Never add a podspec, `Podfile` or `#if canImport`/`COCOAPODS` fallback back. The package is `darwin/ogg_record_player/Package.swift` (unified `darwin/` directory, `sharedDarwinSource: true` in `pubspec.yaml`); consumers need `flutter config --enable-swift-package-manager`. Swift sources are grouped under `Sources/ogg_record_player/` by role (`Api/`, `Player/`, `Recorder/`, `AudioSession/`, `Network/`, `Support/`); the C target `Sources/ogg_record_player_c/` holds `include/` (public C headers), `ffi/` (ffigen input header + generated block wrapper) and C sources. libopus/libopusenc/libopusfile headers come only from the xcframeworks (flat `Headers/`); never copy them into `include/`. The library product stays `type: .dynamic`: Dart resolves `OBJC_CLASS_$_OggRecordPlayerApi` and the ffigen block wrappers by symbol name, and a statically linked product loses them when Xcode strips the archived app (All Symbols), so release/TestFlight builds break while debug works.
 - Apple platforms ship prebuilt universal multi-platform xcframeworks (`libogg`, `libopus`, `libopusenc`, `libopusfile`) with slices for iOS device (arm64), iOS simulator (arm64 + x86_64). Android links static opus/ogg libs through CMake (`android/src/main/cpp/CMakeLists.txt`).
 
 ## Critical behavior to preserve
@@ -63,11 +64,11 @@
   - `flutter analyze`
   - `flutter test`
   - `cd example && flutter run`
-- Rebuild Apple vendored audio libs with `darwin/build-all.sh` (calls `build-libogg.sh`, `build-libopus*.sh`).
+- Rebuild Apple vendored audio libs with `darwin/scripts/build-all.sh` (calls `build-libogg.sh`, `build-libopus*.sh`; shared helpers in `function.sh`).
 
 ## Project-specific conventions / watch-outs
 - Lints come from `analysis_lints` (`analysis_options.yaml`), so keep code style aligned with those rules.
-- Version is mirrored across `pubspec.yaml`, Android `build.gradle.kts`, and Darwin podspec.
+- Version is mirrored across `pubspec.yaml`, and Android `build.gradle.kts`.
 - README and Gradle (`android/build.gradle.kts`) both say Android `minSdk 26`; change them together.
 - Prefer following existing method names and callback payload keys exactly; Dart/native parsing is string-key and brittle to renames.
 

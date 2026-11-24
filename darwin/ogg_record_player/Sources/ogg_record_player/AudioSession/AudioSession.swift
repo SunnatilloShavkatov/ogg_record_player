@@ -27,7 +27,7 @@ class AudioSession {
     }
 
     func activate(client: AudioSessionClient, config: ((AVAudioSession) throws -> Void)? = nil) throws {
-        try Queue.main.autoSync {
+        try onMainSync {
             guard !isInterrupted else { throw Error.interrupted }
             if let previous = currentClient, previous !== client {
                 guard previous.priority <= client.priority else {
@@ -51,7 +51,7 @@ class AudioSession {
     }
 
     func deactivate(client: AudioSessionClient, notifyOthersOnDeactivation: Bool) throws {
-        try Queue.main.autoSync {
+        try onMainSync {
             // A manual pause/disposal during a call cancels automatic resumption.
             if interruptedClient === client {
                 interruptedClient = nil
@@ -69,7 +69,7 @@ class AudioSession {
               let type = AVAudioSession.InterruptionType(rawValue: value.uintValue) else { return }
         let optionsValue = (notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? NSNumber)?.uintValue ?? 0
         let shouldResume = AVAudioSession.InterruptionOptions(rawValue: optionsValue).contains(.shouldResume)
-        Queue.main.autoAsync {
+        onMainAsync {
             switch type {
             case .began:
                 guard !self.isInterrupted else { return }
@@ -92,13 +92,13 @@ class AudioSession {
         guard let previous = notification.userInfo?[AVAudioSessionRouteChangePreviousRouteKey] as? AVAudioSessionRouteDescription,
               let value = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? NSNumber,
               let reason = AVAudioSession.RouteChangeReason(rawValue: value.uintValue) else { return }
-        Queue.main.autoAsync {
+        onMainAsync {
             (self.currentClient ?? self.interruptedClient)?.audioSession(self, didChangeRouteFrom: previous, reason: reason)
         }
     }
 
     @objc private func audioSessionMediaServicesWereReset(_ notification: Notification) {
-        Queue.main.autoAsync {
+        onMainAsync {
             let client = self.currentClient ?? self.interruptedClient
             self.currentClient = nil
             self.interruptedClient = nil

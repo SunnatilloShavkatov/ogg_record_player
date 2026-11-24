@@ -1,4 +1,4 @@
-import 'dart:async';
+import 'dart:async' show Completer, scheduleMicrotask;
 
 import 'package:flutter/foundation.dart';
 import 'package:ogg_record_player/src/ogg_opus_exception.dart';
@@ -25,14 +25,15 @@ final class OggOpusRecorderPluginImpl extends OggOpusRecorder {
         } else {
           recorderEventHandlers[_id] = _onEvent;
         }
-      } on Exception catch (error) {
-        // The recorder stays unusable: start() throws this, and stop() returns early without an id.
+      } on Object catch (error) {
+        // Errors too, so _createCompleter always completes. The recorder stays unusable: start() throws this, and stop() returns early without an id.
         _startFailed = true;
         _startError = error is OggOpusRecorderException
             ? error
             : OggOpusRecorderException(code: OggOpusRecorderException.unknown, message: error.toString());
+      } finally {
+        _createCompleter.complete();
       }
-      _createCompleter.complete();
     });
   }
 
@@ -57,8 +58,13 @@ final class OggOpusRecorderPluginImpl extends OggOpusRecorder {
   /// The last [stop] call; a new recording writes the same file, so it starts only after this one finished.
   Future<void>? _pendingStop;
 
+  /// The start in progress; a second concurrent [start] joins it instead of replacing its [_stopCompleter].
+  Future<void>? _pendingStart;
+
   @override
-  Future<void> start() async {
+  Future<void> start() => _pendingStart ??= _start().whenComplete(() => _pendingStart = null);
+
+  Future<void> _start() async {
     await _createCompleter.future;
     if (_disposed) {
       return;

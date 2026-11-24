@@ -32,10 +32,12 @@ final class OggRecordPlayerPluginImpl extends OggOpusPlayer {
         }
       } on OggOpusPlayerException catch (error) {
         _fail(error);
-      } on Exception catch (error) {
+      } on Object catch (error) {
+        // Errors too: an uncompleted _createCompleter would leave every later call waiting forever.
         _fail(OggOpusPlayerException(code: OggOpusPlayerException.unknown, message: error.toString()));
+      } finally {
+        _createCompleter.complete();
       }
-      _createCompleter.complete();
     });
   }
 
@@ -71,7 +73,9 @@ final class OggRecordPlayerPluginImpl extends OggOpusPlayer {
       return _position;
     }
     final double elapsedSeconds = _positionStopwatch.elapsedMicroseconds / Duration.microsecondsPerSecond;
-    return _position + elapsedSeconds * _playbackRate;
+    final double position = _position + elapsedSeconds * _playbackRate;
+    // Between callbacks the extrapolation can run past the end; never report more than the known duration.
+    return _duration > 0 && position > _duration ? _duration : position;
   }
 
   @override
@@ -107,8 +111,13 @@ final class OggRecordPlayerPluginImpl extends OggOpusPlayer {
 
   @override
   Future<void> dispose() async {
+    final bool firstDispose = !_disposed;
     _disposed = true;
     await _createCompleter.future;
+    if (firstDispose) {
+      // No callback reaches it any more: the create microtask checks _disposed and the handler is removed below.
+      _playerState.dispose();
+    }
     if (_playerId > 0 && playerEventHandlers.remove(_playerId) != null) {
       await _platform.disposePlayer(_playerId);
     }
@@ -125,6 +134,9 @@ final class OggRecordPlayerPluginImpl extends OggOpusPlayer {
 
   void _fail(OggOpusPlayerException error) {
     _error = error;
+    if (_disposed) {
+      return;
+    }
     _playerState.value = PlayerState.error;
   }
 

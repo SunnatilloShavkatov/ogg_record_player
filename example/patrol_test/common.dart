@@ -8,7 +8,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:ogg_record_player/ogg_record_player.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:patrol/patrol.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 /// `audios/test.ogg`: 31.12 s, mono Opus (checked with ffprobe).
 const double assetDuration = 31.12;
@@ -61,32 +60,31 @@ Future<PlayerState> settled(OggOpusPlayer player, {Duration timeout = const Dura
 
 Future<void> delay(Duration duration) => Future<void>.delayed(duration);
 
-/// Grants the microphone through the system dialog and prepares the iOS audio session for recording.
+/// Grants the microphone through the plugin's system prompt and prepares the iOS audio session for recording.
 Future<void> grantMicrophone(PatrolIntegrationTester $) async {
-  if (Platform.isAndroid) {
-    final Future<PermissionStatus> request = Permission.microphone.request();
-    if (await $.platform.mobile.isPermissionDialogVisible(timeout: const Duration(seconds: 5))) {
+  final Future<MicrophonePermission> request = OggOpusRecorder.requestPermission();
+  if (await $.platform.mobile.isPermissionDialogVisible(timeout: const Duration(seconds: 5))) {
+    if (Platform.isIOS) {
+      // iOS 27 exposes the alert's "Allow" button twice, which breaks Patrol's single-match grant.
+      await $.platform.tap(
+        const IOSSelector(elementType: IOSElementType.button, label: 'Allow', instance: 0),
+        appId: 'com.apple.springboard',
+      );
+    } else {
       await $.platform.mobile.grantPermissionWhenInUse();
     }
-    expect(await request, PermissionStatus.granted);
-    return;
   }
-  final AudioSession session = await AudioSession.instance;
-  await session.configure(
-    const AudioSessionConfiguration(
-      avAudioSessionCategory: AVAudioSessionCategory.playAndRecord,
-      avAudioSessionCategoryOptions: AVAudioSessionCategoryOptions.defaultToSpeaker,
-      avAudioSessionMode: AVAudioSessionMode.spokenAudio,
-    ),
-  );
-  // audio_session's permission request needs a compile-time macro on iOS, so let the first microphone
-  // use raise the system dialog (as it does in an app) and answer it; the throwaway recording is discarded.
-  final OggOpusRecorder probe = OggOpusRecorder(await freshPath('probe.ogg'));
-  await probe.start();
-  if (await $.platform.mobile.isPermissionDialogVisible(timeout: const Duration(seconds: 3))) {
-    await $.platform.mobile.grantPermissionWhenInUse();
+  expect(await request, MicrophonePermission.granted);
+  if (Platform.isIOS) {
+    final AudioSession session = await AudioSession.instance;
+    await session.configure(
+      const AudioSessionConfiguration(
+        avAudioSessionCategory: AVAudioSessionCategory.playAndRecord,
+        avAudioSessionCategoryOptions: AVAudioSessionCategoryOptions.defaultToSpeaker,
+        avAudioSessionMode: AVAudioSessionMode.spokenAudio,
+      ),
+    );
   }
-  await probe.dispose();
 }
 
 /// Records [length] into a fresh file and returns the stopped recorder's results.

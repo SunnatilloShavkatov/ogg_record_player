@@ -29,7 +29,7 @@
 #  target are resolved in function.sh.
 VERSION="1.3.5"
 
-source function.sh
+source "$(dirname "${BASH_SOURCE[0]}")/function.sh"
 
 ########################################
 
